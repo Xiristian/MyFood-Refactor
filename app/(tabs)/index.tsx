@@ -10,90 +10,102 @@ import { NativeStackNavigationProp } from 'react-native-screens/lib/typescript/n
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import moment from 'moment';
 
+// Types
 interface ItemMeal extends Meal {
   isExpanded?: boolean;
 }
 
-function IconComponent({ iconName }: { iconName: string }) {
-  if (iconName === 'sunrise') {
-    return <Feather name="sunrise" size={24} color="#76A689" style={styles.icon} />;
-  } else if (iconName === 'coffee') {
-    return <Feather name="coffee" size={24} color="#76A689" style={styles.icon} />;
-  } else if (iconName === 'sun') {
-    return <Feather name="sun" size={24} color="#76A689" style={styles.icon} />;
-  } else if (iconName === 'moon') {
-    return <Feather name="moon" size={24} color="#76A689" style={styles.icon} />;
-  } else {
-    return null;
-  }
-}
-
-const RenderItem = ({
-  item,
-  date,
-  toggleExpansion,
-  loadData,
-}: {
-  item: ItemMeal;
-  date: Date;
-  toggleExpansion: any;
-  loadData: any;
-}) => {
-  function ArrowIcon() {
-    if (item.isExpanded)
-      return <Feather name="chevron-down" size={24} color="#76A689" style={styles.icon} />;
-    else return <Feather name="chevron-right" size={24} color="#76A689" style={styles.icon} />;
-  }
-
-  return (
-    <View lightColor="#FFFCEB" darkColor="#3C3C3C">
-      <View style={styles.listItem} lightColor="#FFFCEB" darkColor="#3C3C3C">
-        <IconComponent iconName={item.iconName} />
-        <Text numberOfLines={1} style={styles.itemText}>
-          {item.name}
-        </Text>
-        <TouchableOpacity onPress={() => toggleExpansion(item.id)}>
-          <ArrowIcon />
-        </TouchableOpacity>
-      </View>
-      {item.isExpanded ? <RenderFoods foods={item.foods} loadData={loadData} /> : null}
-      {item.isExpanded ? (
-        <RenderExpandedContent id={item.id} date={date} loadData={loadData} />
-      ) : null}
-    </View>
-  );
+type RootStackParamList = {
+  modal: any;
+  camera: { id: number; date: Date; loadData: () => Promise<void> };
+  'description-screen': { id: number; date: Date; loadData: () => Promise<void> };
 };
 
-const RenderExpandedContent = ({
-  id,
-  date,
-  loadData,
-}: {
+// Constants
+const INITIAL_MEALS: ItemMeal[] = [
+  { id: 1, name: 'Desjejum', iconName: 'sunrise', order: 0, foods: [] },
+  { id: 2, name: 'Café da manhã', iconName: 'coffee', order: 0, foods: [] },
+  { id: 3, name: 'Almoço', iconName: 'sun', order: 0, foods: [] },
+  { id: 4, name: 'Café da tarde', iconName: 'coffee', order: 0, foods: [] },
+  { id: 5, name: 'Jantar', iconName: 'moon', order: 0, foods: [] },
+];
+
+// Custom Hook
+const useMealData = (initialDate: Date) => {
+  const [data, setData] = useState<ItemMeal[]>([]);
+  const [date, setDate] = useState(initialDate);
+  const { mealRepository } = useDatabaseConnection();
+
+  const loadData = async () => {
+    try {
+      let meals = await mealRepository.findAll();
+      if (!meals || meals.length === 0) {
+        meals = await mealRepository.createMeals(INITIAL_MEALS);
+      }
+      meals = await mealRepository.findByDate(date);
+      setData((prevData) => {
+        return meals.map((meal, index) => ({
+          ...meal,
+          isExpanded: prevData[index]?.isExpanded,
+        }));
+      });
+    } catch (error) {
+      console.error('Erro ao carregar refeições:', error);
+    }
+  };
+
+  useEffect(() => {
+    loadData();
+  }, [date]);
+
+  const toggleExpansion = (id: number) => {
+    setData((prevData) =>
+      prevData.map((item) => ({
+        ...item,
+        isExpanded: item.id === id ? !item.isExpanded : item.isExpanded,
+      }))
+    );
+  };
+
+  return { data, date, setDate, loadData, toggleExpansion };
+};
+
+// Components
+const MealIcon: React.FC<{ iconName: string }> = ({ iconName }) => {
+  const iconMap = {
+    sunrise: 'sunrise',
+    coffee: 'coffee',
+    sun: 'sun',
+    moon: 'moon',
+  };
+
+  const iconName_ = iconMap[iconName as keyof typeof iconMap];
+  return iconName_ ? (
+    <Feather name={iconName_ as any} size={24} color="#76A689" style={styles.icon} />
+  ) : null;
+};
+
+const ExpandedActions: React.FC<{
   id: number;
   date: Date;
-  loadData: any;
-}) => {
-  type RootStackParamList = {
-    camera: { id: number; date: Date; loadData: any };
-    'description-screen': { id: number; date: Date; loadData: any };
-  };
+  loadData: () => Promise<void>;
+}> = ({ id, date, loadData }) => {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+
+  const navigateToScreen = (screen: 'camera' | 'description-screen') => {
+    navigation.navigate(screen, { id, date, loadData });
+  };
+
   return (
     <View style={styles.expandedContent}>
       <View style={styles.expandedContentIconsRow} lightColor="#FFFCEB" darkColor="#3C3C3C">
-        <TouchableOpacity
-          onPress={() => {
-            navigation.navigate('camera', { id: id, date: date, loadData });
-          }}>
+        <TouchableOpacity onPress={() => navigateToScreen('camera')}>
           <View style={styles.iconWithText} lightColor="#FFFCEB" darkColor="#3C3C3C">
             <Feather name="camera" size={24} color="#76A689" style={styles.icon} />
             <Text style={styles.iconDescription}>Fotografar</Text>
           </View>
         </TouchableOpacity>
-        <TouchableOpacity
-          onPress={() => {
-            navigation.navigate('description-screen', { id: id, date: date, loadData });
-          }}>
+        <TouchableOpacity onPress={() => navigateToScreen('description-screen')}>
           <View style={styles.iconWithText} lightColor="#FFFCEB" darkColor="#3C3C3C">
             <Feather name="edit" size={24} color="#76A689" style={styles.icon} />
             <Text style={styles.iconDescription}>Descrever</Text>
@@ -104,39 +116,43 @@ const RenderExpandedContent = ({
   );
 };
 
-export default function TabTwoScreen() {
-  type RootStackParamList = { modal: any };
-  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-  const { mealRepository } = useDatabaseConnection();
+const MealItem: React.FC<{
+  item: ItemMeal;
+  date: Date;
+  toggleExpansion: (id: number) => void;
+  loadData: () => Promise<void>;
+}> = ({ item, date, toggleExpansion, loadData }) => {
+  return (
+    <View lightColor="#FFFCEB" darkColor="#3C3C3C">
+      <View style={styles.listItem} lightColor="#FFFCEB" darkColor="#3C3C3C">
+        <MealIcon iconName={item.iconName} />
+        <Text numberOfLines={1} style={styles.itemText}>
+          {item.name}
+        </Text>
+        <TouchableOpacity onPress={() => toggleExpansion(item.id)}>
+          <Feather
+            name={item.isExpanded ? 'chevron-down' : 'chevron-right'}
+            size={24}
+            color="#76A689"
+            style={styles.icon}
+          />
+        </TouchableOpacity>
+      </View>
+      {item.isExpanded && (
+        <>
+          <RenderFoods foods={item.foods} loadData={loadData} />
+          <ExpandedActions id={item.id} date={date} loadData={loadData} />
+        </>
+      )}
+    </View>
+  );
+};
 
-  const initialData: ItemMeal[] = [
-    { id: 1, name: 'Desjejum', iconName: 'sunrise', order: 0, foods: [] },
-    { id: 2, name: 'Café da manhã', iconName: 'coffee', order: 0, foods: [] },
-    { id: 3, name: 'Almoço', iconName: 'sun', order: 0, foods: [] },
-    { id: 4, name: 'Café da tarde', iconName: 'coffee', order: 0, foods: [] },
-    { id: 5, name: 'Jantar', iconName: 'moon', order: 0, foods: [] },
-  ];
-
-  const [data, setData] = useState<ItemMeal[]>([]);
-  const [date, setDate] = useState(new Date());
+const DateSelector: React.FC<{
+  date: Date;
+  setDate: (date: Date) => void;
+}> = ({ date, setDate }) => {
   const [showCalendar, setShowCalendar] = useState(false);
-
-  async function loadData() {
-    let meals = await mealRepository.findAll();
-    if (!meals || meals.length === 0) meals = await mealRepository.createMeals(initialData);
-    meals = await mealRepository.findByDate(date);
-    setData((data) => {
-      for (let i = 0; i < meals.length; i++) {
-        //@ts-ignore
-        meals[i].isExpanded = data[i]?.isExpanded;
-      }
-      return meals;
-    });
-  }
-
-  useEffect(() => {
-    loadData();
-  }, [date]);
 
   const onChange = (event: DateTimePickerEvent, selectedDate?: Date) => {
     const currentDate = selectedDate || date;
@@ -144,57 +160,55 @@ export default function TabTwoScreen() {
     setDate(currentDate);
   };
 
-  const showDatepicker = () => {
-    setShowCalendar(true);
-  };
+  return (
+    <TouchableOpacity
+      onPress={() => setShowCalendar(true)}
+      style={styles.datePickerButton}
+    >
+      {Platform.OS !== 'ios' && (
+        <Text style={styles.dateText}>{moment(date).format('DD/MM/yyyy')}</Text>
+      )}
+      {(showCalendar || Platform.OS === 'ios') && (
+        <DateTimePicker
+          testID="dateTimePicker"
+          value={date}
+          mode={'date'}
+          display="default"
+          onChange={onChange}
+          accentColor="#547260"
+          locale="pt-BR"
+        />
+      )}
+      <Feather name="calendar" size={24} color="#76A689" style={styles.calendarIcon} />
+    </TouchableOpacity>
+  );
+};
 
-  const toggleExpansion = (id: number) => {
-    if (data)
-      setData(
-        data.map((item) => {
-          if (item.id === id) {
-            return { ...item, isExpanded: !item.isExpanded };
-          }
-          return item;
-        }),
-      );
-    loadData();
-  };
+export default function MealsScreen() {
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const { data, date, setDate, loadData, toggleExpansion } = useMealData(new Date());
 
   return (
     <View style={styles.container} lightColor="#FFFCEB" darkColor="#3C3C3C">
-      <View style={{ flexDirection: 'row' }} lightColor="#FFFCEB" darkColor="#3C3C3C">
+      <View style={styles.header} lightColor="#FFFCEB" darkColor="#3C3C3C">
         <Text style={styles.title}>Minhas refeições</Text>
         <TouchableOpacity
-          style={{ top: '5.5%', left: 10 }}
-          onPress={() => navigation.navigate('modal')}>
+          style={styles.addButton}
+          onPress={() => navigation.navigate('modal')}
+        >
           <Feather name="plus" size={24} color="#76A689" />
         </TouchableOpacity>
       </View>
-      <TouchableOpacity onPress={showDatepicker} style={styles.datePickerButton}>
-        {Platform.OS !== 'ios' && (
-          <Text style={styles.dateText}>{moment(date).format('DD/MM/yyyy')}</Text>
-        )}
-        {(showCalendar || Platform.OS === 'ios') && (
-          <DateTimePicker
-            testID="dateTimePicker"
-            value={date}
-            mode={'date'}
-            display="default"
-            onChange={onChange}
-            accentColor="#547260"
-            locale="pt-BR"
-          />
-        )}
-        <Feather name="calendar" size={24} color="#76A689" style={styles.calendarIcon} />
-      </TouchableOpacity>
+      
+      <DateSelector date={date} setDate={setDate} />
+      
       <View style={styles.listContainer} lightColor="#FFFCEB" darkColor="#3C3C3C">
         <FlatList
           data={data}
           keyExtractor={(item) => item.id.toString()}
-          renderItem={(item) => (
-            <RenderItem
-              item={item.item}
+          renderItem={({ item }) => (
+            <MealItem
+              item={item}
               date={date}
               toggleExpansion={toggleExpansion}
               loadData={loadData}
@@ -212,6 +226,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    width: '100%',
+    paddingHorizontal: 20,
+  },
   title: {
     fontSize: 20,
     fontWeight: 'bold',
@@ -219,10 +239,9 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     marginTop: 20,
   },
-  separator: {
-    marginVertical: 10,
-    height: 1,
-    width: '80%',
+  addButton: {
+    marginLeft: 10,
+    marginTop: 5,
   },
   listContainer: {
     flexGrow: 1,
@@ -248,39 +267,34 @@ const styles = StyleSheet.create({
   expandedContent: {
     marginTop: 10,
     width: '70%',
-    marginHorizontal: '15%',
-    marginBottom: 10,
   },
   expandedContentIconsRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'space-around',
+    marginBottom: 10,
   },
   iconWithText: {
-    flexDirection: 'row',
     alignItems: 'center',
   },
   iconDescription: {
-    marginLeft: 5,
-    fontSize: 16,
-    color: '#76A689',
-  },
-  calendarIcon: {
-    marginLeft: 20,
+    color: '#547260',
+    fontSize: 12,
+    marginTop: 5,
   },
   datePickerButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 7,
-    borderWidth: 1,
-    borderColor: '#76A689',
+    marginVertical: 10,
+    padding: 10,
+    backgroundColor: '#FFFCEB',
     borderRadius: 5,
-    marginTop: 10,
-    marginBottom: 20,
-    width: '50%',
   },
   dateText: {
-    fontSize: 16,
+    marginRight: 10,
     color: '#547260',
-    marginLeft: 30,
+    fontSize: 16,
+  },
+  calendarIcon: {
+    marginLeft: 5,
   },
 });

@@ -16,71 +16,88 @@ import { login, register } from '@/backend/user';
 import { useDatabaseConnection } from '@/database/DatabaseConnection';
 import { useNavigation } from 'expo-router';
 
-interface LoginPageProps {
+// Types
+interface RegisterPageProps {
   onLogin: () => void;
 }
 
-const CadastroScreen: React.FC<LoginPageProps> = ({ onLogin }) => {
-  const navigation = useNavigation();
+interface RegisterFormData {
+  image: string | null;
+  email: string;
+  name: string;
+  age: string;
+  height: string;
+  currentWeight: string;
+  targetWeight: string;
+  password: string;
+  confirmPassword: string;
+}
 
-  const { userRepository } = useDatabaseConnection();
-  const [image, setImage] = useState<string | null>(null);
-  const [email, setEmail] = useState('');
-  const [nome, setNome] = useState('');
-  const [idade, setIdade] = useState('');
-  const [altura, setAltura] = useState('');
-  const [pesoAtual, setPesoAtual] = useState('');
-  const [pesoMeta, setPesoMeta] = useState('');
-  const [senha, setSenha] = useState('');
-  const [confirmarSenha, setConfirmarSenha] = useState('');
+// Custom Hooks
+const useRegisterForm = () => {
+  const [formData, setFormData] = useState<RegisterFormData>({
+    image: null,
+    email: '',
+    name: '',
+    age: '',
+    height: '',
+    currentWeight: '',
+    targetWeight: '',
+    password: '',
+    confirmPassword: '',
+  });
 
-  const handleCadastro = async () => {
+  const updateFormField = (field: keyof RegisterFormData, value: string | null) => {
+    setFormData((prev) => ({
+      ...prev,
+      [field]: value,
+    }));
+  };
+
+  const validateForm = () => {
+    const {
+      name,
+      age,
+      height,
+      currentWeight,
+      targetWeight,
+      password,
+      confirmPassword,
+      email,
+    } = formData;
+
     if (
-      !nome ||
-      !idade ||
-      !altura ||
-      !pesoAtual ||
-      !pesoMeta ||
-      !senha ||
-      !confirmarSenha ||
+      !name ||
+      !age ||
+      !height ||
+      !currentWeight ||
+      !targetWeight ||
+      !password ||
+      !confirmPassword ||
       !email
     ) {
-      Alert.alert('Erro', 'Por favor, preencha todos os campos.');
-      return;
+      throw new Error('Por favor, preencha todos os campos.');
     }
 
-    if (senha !== confirmarSenha) {
-      Alert.alert('Erro', 'As senhas não coincidem. Por favor, tente novamente.');
-      return;
-    }
-
-    try {
-      await register({
-        email,
-        name: nome,
-        password: senha,
-        age: parseInt(idade),
-        goal: parseFloat(pesoMeta),
-        weight: parseFloat(pesoAtual),
-        height: parseFloat(altura),
-      });
-
-      const response = await login({ email, password: senha });
-      if (response?.name) {
-        await userRepository.create(response);
-        if (onLogin) onLogin();
-        else navigation.goBack();
-      } else {
-        Alert.alert('Erro', 'Credenciais inválidas. Por favor, tente novamente.');
-      }
-    } catch (error) {
-      console.error('Erro ao fazer login:', error);
-      Alert.alert('Erro', 'Algo deu errado. Por favor, tente novamente mais tarde.');
+    if (password !== confirmPassword) {
+      throw new Error('As senhas não coincidem. Por favor, tente novamente.');
     }
   };
 
+  return {
+    formData,
+    updateFormField,
+    validateForm,
+  };
+};
+
+// Components
+const ImageSelector: React.FC<{
+  image: string | null;
+  onImageSelect: (uri: string | null) => void;
+}> = ({ image, onImageSelect }) => {
   const pickImage = async () => {
-    let result = await ImagePicker.launchImageLibraryAsync({
+    const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.All,
       allowsEditing: true,
       aspect: [1, 1],
@@ -88,94 +105,153 @@ const CadastroScreen: React.FC<LoginPageProps> = ({ onLogin }) => {
     });
 
     if (!result.canceled && result.assets && result.assets.length > 0) {
-      setImage(result.assets[0].uri);
+      onImageSelect(result.assets[0].uri);
+    }
+  };
+
+  return (
+    <Pressable style={styles.imageContainer} onPress={pickImage}>
+      {image ? (
+        <Image source={{ uri: image }} style={styles.image} />
+      ) : (
+        <FontAwesome name="camera" size={40} color="#547260" />
+      )}
+    </Pressable>
+  );
+};
+
+const FormInput: React.FC<{
+  label: string;
+  value: string;
+  onChangeText: (text: string) => void;
+  keyboardType?: 'default' | 'numeric';
+  secureTextEntry?: boolean;
+}> = ({ label, value, onChangeText, keyboardType = 'default', secureTextEntry }) => (
+  <View style={styles.inputContainer}>
+    <Text style={styles.label}>{label}</Text>
+    <TextInput
+      style={styles.input}
+      value={value}
+      onChangeText={onChangeText}
+      keyboardType={keyboardType}
+      secureTextEntry={secureTextEntry}
+    />
+  </View>
+);
+
+const RegisterPage: React.FC<RegisterPageProps> = ({ onLogin }) => {
+  const navigation = useNavigation();
+  const { userRepository } = useDatabaseConnection();
+  const { formData, updateFormField, validateForm } = useRegisterForm();
+
+  const handleRegister = async () => {
+    try {
+      validateForm();
+
+      await register({
+        email: formData.email,
+        name: formData.name,
+        password: formData.password,
+        age: parseInt(formData.age),
+        goal: parseFloat(formData.targetWeight),
+        weight: parseFloat(formData.currentWeight),
+        height: parseFloat(formData.height),
+      });
+
+      const response = await login({
+        email: formData.email,
+        password: formData.password,
+      });
+
+      if (response?.name) {
+        await userRepository.create(response);
+        onLogin ? onLogin() : navigation.goBack();
+      } else {
+        Alert.alert('Erro', 'Credenciais inválidas. Por favor, tente novamente.');
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Algo deu errado. Por favor, tente novamente mais tarde.';
+      Alert.alert('Erro', message);
     }
   };
 
   return (
     <KeyboardAvoidingView
-      style={{ flex: 1 }}
+      style={styles.keyboardView}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-      <ScrollView contentContainerStyle={{ flexGrow: 1 }}>
+      <ScrollView contentContainerStyle={styles.scrollView}>
         <View style={styles.container} lightColor="#FFFCEB" darkColor="#3C3C3C">
-          <Pressable style={styles.imageContainer} onPress={pickImage}>
-            {image ? (
-              <Image source={{ uri: image }} style={styles.image} />
-            ) : (
-              <FontAwesome name="camera" size={40} color="#547260" />
-            )}
-          </Pressable>
-          <View style={styles.inputContainer}>
-            <Text style={styles.label}>Nome</Text>
-            <TextInput style={styles.input} value={nome} onChangeText={setNome} />
-          </View>
-          <View
-            style={[styles.row, styles.inputContainer]}
-            lightColor="#FFFCEB"
-            darkColor="#3C3C3C">
+          <ImageSelector
+            image={formData.image}
+            onImageSelect={(uri) => updateFormField('image', uri)}
+          />
+
+          <FormInput
+            label="Nome"
+            value={formData.name}
+            onChangeText={(text) => updateFormField('name', text)}
+          />
+
+          <View style={[styles.row]} lightColor="#FFFCEB" darkColor="#3C3C3C">
             <View style={styles.halfWidthContainer}>
-              <Text style={styles.label}>Idade</Text>
-              <TextInput
-                style={styles.input}
+              <FormInput
+                label="Idade"
+                value={formData.age}
+                onChangeText={(text) => updateFormField('age', text)}
                 keyboardType="numeric"
-                value={idade}
-                onChangeText={setIdade}
               />
             </View>
             <View style={styles.halfWidthContainer}>
-              <Text style={styles.label}>Altura (cm)</Text>
-              <TextInput
-                style={styles.input}
+              <FormInput
+                label="Altura (cm)"
+                value={formData.height}
+                onChangeText={(text) => updateFormField('height', text)}
                 keyboardType="numeric"
-                value={altura}
-                onChangeText={setAltura}
               />
             </View>
           </View>
 
-          <View
-            style={[styles.row, styles.inputContainer]}
-            lightColor="#FFFCEB"
-            darkColor="#3C3C3C">
+          <View style={[styles.row]} lightColor="#FFFCEB" darkColor="#3C3C3C">
             <View style={styles.halfWidthContainer}>
-              <Text style={styles.label}>Peso Atual (kg)</Text>
-              <TextInput
-                style={styles.input}
+              <FormInput
+                label="Peso Atual (kg)"
+                value={formData.currentWeight}
+                onChangeText={(text) => updateFormField('currentWeight', text)}
                 keyboardType="numeric"
-                value={pesoAtual}
-                onChangeText={setPesoAtual}
               />
             </View>
             <View style={styles.halfWidthContainer}>
-              <Text style={styles.label}>Peso Meta (kg)</Text>
-              <TextInput
-                style={styles.input}
+              <FormInput
+                label="Peso Meta (kg)"
+                value={formData.targetWeight}
+                onChangeText={(text) => updateFormField('targetWeight', text)}
                 keyboardType="numeric"
-                value={pesoMeta}
-                onChangeText={setPesoMeta}
               />
             </View>
-          </View>
-          <View style={styles.inputContainer}>
-            <Text style={styles.label}>E-Mail</Text>
-            <TextInput style={styles.input} value={email} onChangeText={setEmail} />
-          </View>
-          <View style={styles.inputContainer}>
-            <Text style={styles.label}>Senha</Text>
-            <TextInput style={styles.input} secureTextEntry value={senha} onChangeText={setSenha} />
-          </View>
-          <View style={styles.inputContainer}>
-            <Text style={styles.label}>Confirmar Senha</Text>
-            <TextInput
-              style={styles.input}
-              secureTextEntry
-              value={confirmarSenha}
-              onChangeText={setConfirmarSenha}
-            />
           </View>
 
-          <TouchableOpacity style={styles.button} onPress={handleCadastro}>
-            <Text>ENTRAR</Text>
+          <FormInput
+            label="E-Mail"
+            value={formData.email}
+            onChangeText={(text) => updateFormField('email', text)}
+          />
+
+          <FormInput
+            label="Senha"
+            value={formData.password}
+            onChangeText={(text) => updateFormField('password', text)}
+            secureTextEntry
+          />
+
+          <FormInput
+            label="Confirmar Senha"
+            value={formData.confirmPassword}
+            onChangeText={(text) => updateFormField('confirmPassword', text)}
+            secureTextEntry
+          />
+
+          <TouchableOpacity style={styles.button} onPress={handleRegister}>
+            <Text style={styles.buttonText}>CADASTRAR</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -184,6 +260,12 @@ const CadastroScreen: React.FC<LoginPageProps> = ({ onLogin }) => {
 };
 
 const styles = StyleSheet.create({
+  keyboardView: {
+    flex: 1,
+  },
+  scrollView: {
+    flexGrow: 1,
+  },
   container: {
     flex: 1,
     justifyContent: 'center',
@@ -227,6 +309,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  buttonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
   imageContainer: {
     marginTop: 20,
     alignSelf: 'center',
@@ -244,10 +331,6 @@ const styles = StyleSheet.create({
     height: 130,
     borderRadius: 50,
   },
-  arrow: {
-    marginTop: 20,
-    color: 'white',
-  },
 });
 
-export default CadastroScreen;
+export default RegisterPage;
