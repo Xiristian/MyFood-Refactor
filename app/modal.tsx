@@ -1,45 +1,83 @@
+import React, { useState } from 'react';
 import { StyleSheet } from 'react-native';
 import { Text, TextInput, TouchableOpacity, View } from '@/components/Themed';
 import { colors } from 'react-native-elements';
-import { useState } from 'react';
 import { useDatabaseConnection } from '@/database/DatabaseConnection';
 import { useNavigation } from 'expo-router';
 
-export default function ModalScreen() {
+// Constants
+const OVERLAY_OPACITY = 0.9;
+const MODAL_WIDTH_PERCENTAGE = '80%';
+const MODAL_TOP_OFFSET = '-10%';
+
+// Custom Hooks
+const useCreateMeal = () => {
+  const [description, setDescription] = useState('');
   const { mealRepository } = useDatabaseConnection();
   const navigation = useNavigation();
 
-  const [description, setDescription] = useState('');
+  const handleCreateMeal = async () => {
+    if (!description.trim()) return;
 
-  async function onPress() {
-    await mealRepository.createMeal({ name: description, iconName: 'sunrise' });
-    navigation.goBack();
-  }
+    try {
+      await mealRepository.createMeal({
+        name: description,
+        iconName: 'sunrise',
+      });
+      navigation.goBack();
+    } catch (error) {
+      console.error('Erro ao criar refeição:', error);
+    }
+  };
+
+  return {
+    description,
+    setDescription,
+    handleCreateMeal,
+  };
+};
+
+// Components
+const Overlay: React.FC = () => (
+  <View
+    style={styles.overlay}
+    lightColor={`rgba(0, 0, 0, ${OVERLAY_OPACITY})`}
+    darkColor={`rgba(0, 0, 0, ${OVERLAY_OPACITY})`}
+  />
+);
+
+const ModalContent: React.FC<{
+  description: string;
+  onDescriptionChange: (text: string) => void;
+  onSubmit: () => void;
+}> = ({ description, onDescriptionChange, onSubmit }) => (
+  <View style={styles.modal} lightColor="#FFFCEB" darkColor="#3C3C3C">
+    <Text style={styles.title}>Refeição</Text>
+    <TextInput
+      style={styles.input}
+      value={description}
+      onChangeText={onDescriptionChange}
+      placeholder="Descrição"
+      placeholderTextColor="#FFFCEB"
+    />
+    <TouchableOpacity style={styles.button} onPress={onSubmit}>
+      <Text style={styles.buttonText}>Criar</Text>
+    </TouchableOpacity>
+  </View>
+);
+
+export default function ModalScreen() {
+  const { description, setDescription, handleCreateMeal } = useCreateMeal();
 
   return (
     <>
-      <View
-        style={{
-          opacity: 0.9,
-          backgroundColor: colors.grey0,
-          width: '100%',
-          height: '100%',
-          position: 'absolute',
-        }}></View>
+      <Overlay />
       <View style={styles.container}>
-        <View style={styles.modal} lightColor="#FFFCEB" darkColor="#3C3C3C">
-          <Text style={styles.title}>Refeição</Text>
-          <TextInput
-            style={styles.input}
-            keyboardType="default"
-            value={description}
-            onChangeText={setDescription}
-            placeholder="Descrição"
-          />
-          <TouchableOpacity style={styles.button} onPress={onPress}>
-            <Text style={styles.buttonText}>Criar</Text>
-          </TouchableOpacity>
-        </View>
+        <ModalContent
+          description={description}
+          onDescriptionChange={setDescription}
+          onSubmit={handleCreateMeal}
+        />
       </View>
     </>
   );
@@ -51,11 +89,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  overlay: {
+    width: '100%',
+    height: '100%',
+    position: 'absolute',
+    backgroundColor: colors.grey0,
+  },
   modal: {
     height: 300,
-    width: '80%',
-    top: '-10%',
-    opacity: 1,
+    width: MODAL_WIDTH_PERCENTAGE,
+    top: MODAL_TOP_OFFSET,
     borderColor: colors.black,
     borderWidth: 5,
     borderRadius: 30,
@@ -68,11 +111,6 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#547260',
     paddingBottom: 20,
-  },
-  separator: {
-    marginVertical: 30,
-    height: 1,
-    width: '80%',
   },
   input: {
     width: '100%',
@@ -95,7 +133,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   buttonText: {
-    color: '#ffffff',
-    paddingHorizontal: 10,
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: 'bold',
   },
 });
