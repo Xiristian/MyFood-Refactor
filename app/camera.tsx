@@ -5,8 +5,8 @@ import { useEffect, useState } from 'react';
 import { Feather } from '@expo/vector-icons';
 import CustomImagePicker from '@/components/ImagePicker';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
-import { useDatabaseConnection } from '@/database/DatabaseConnection';
 import { FoodDTO } from '@/backend/get-foods';
+import { MealService } from '@/database/services/MealService';
 
 // Types
 interface RouteParams {
@@ -15,27 +15,65 @@ interface RouteParams {
   loadData: () => Promise<void>;
 }
 
+// Constants
+const THEME = {
+  COLORS: {
+    PRIMARY: '#547260',
+    SECONDARY: '#76A689',
+    BACKGROUND: '#FFFCEB',
+    ERROR: '#FF6B6B',
+    SEPARATOR: '#E3E3E3',
+    FOOD_ITEM: '#F5F5F5',
+  },
+  SPACING: {
+    PADDING: 10,
+    MARGIN: {
+      TOP: 20,
+      VERTICAL: 5,
+      HORIZONTAL: 20,
+    },
+  },
+  BORDER: {
+    RADIUS: {
+      BUTTON: 8,
+      IMAGE: 10,
+    },
+    WIDTH: 2,
+  },
+  ICON: {
+    SIZE: {
+      BACK: 25,
+    },
+  },
+  IMAGE: {
+    SIZE: 200,
+  },
+  FONT: {
+    SIZE: {
+      NORMAL: 16,
+    },
+  },
+};
+
 // Custom Hooks
-const useFoodCreation = (mealId: number, date: Date, loadData: () => Promise<void>) => {
+const useFoodCreation = (mealId: number, date: Date, onSuccess: () => Promise<void>) => {
   const [foods, setFoods] = useState<FoodDTO[]>([]);
-  const { mealRepository } = useDatabaseConnection();
+  const mealService = MealService.getInstance();
 
   useEffect(() => {
     const createFoods = async () => {
       try {
         await Promise.all(
-          foods.map((food) =>
-            mealRepository.createFood(
-              food.food_name,
-              food.quantity,
-              food.calories,
-              date,
-              mealId,
-              food.unit,
-            )
+          foods.map(food =>
+            mealService.addFoodToMeal(mealId, {
+              name: food.food_name,
+              calories: food.calories,
+              mealId: mealId,
+              date: date
+            })
           )
         );
-        await loadData();
+        await onSuccess();
       } catch (error) {
         console.error('Erro ao criar alimentos:', error);
       }
@@ -55,13 +93,13 @@ const useFoodCreation = (mealId: number, date: Date, loadData: () => Promise<voi
 // Components
 const BackButton: React.FC<{ onPress: () => void }> = ({ onPress }) => (
   <TouchableOpacity style={styles.backButton} onPress={onPress}>
-    <Feather name="arrow-left" size={25} style={styles.arrow} />
+    <Feather name="arrow-left" size={THEME.ICON.SIZE.BACK} style={styles.arrow} />
   </TouchableOpacity>
 );
 
 const FoodList: React.FC<{ foods: FoodDTO[] }> = ({ foods }) => (
   <>
-    {foods.map((food) => (
+    {foods.map(food => (
       <View key={food.food_name} style={styles.foodItem}>
         <Text style={styles.foodText}>
           {food.food_name} {food.quantity} {food.unit}
@@ -76,7 +114,11 @@ const PreviewImage: React.FC<{ uri: string }> = ({ uri }) => (
 );
 
 const Separator = () => (
-  <View style={styles.separator} lightColor="#eee" darkColor="rgba(255,255,255,0.1)" />
+  <View style={styles.separator} lightColor={THEME.COLORS.SEPARATOR} darkColor="rgba(255,255,255,0.1)" />
+);
+
+const ErrorMessage: React.FC<{ message: string }> = ({ message }) => (
+  message ? <Text style={styles.errorText}>{message}</Text> : null
 );
 
 export default function CameraScreen() {
@@ -84,8 +126,8 @@ export default function CameraScreen() {
   const route = useRoute<RouteProp<{ params: RouteParams }>>();
   const { id, date, loadData } = route.params;
 
-  const [image, setImage] = useState('');
-  const [error, setError] = useState('');
+  const [imageUri, setImageUri] = useState('');
+  const [errorMessage, setErrorMessage] = useState('');
   const { foods, setFoods } = useFoodCreation(id, date, loadData);
 
   const handleGoBack = () => navigation.goBack();
@@ -96,19 +138,19 @@ export default function CameraScreen() {
       
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <CustomImagePicker
-          setImage={setImage}
+          setImage={setImageUri}
           setFoods={setFoods}
-          setError={setError}
+          setError={setErrorMessage}
           goBack={handleGoBack}
         />
 
-        {error && <Text style={styles.errorText}>{error}</Text>}
+        <ErrorMessage message={errorMessage} />
         
         {foods.length > 0 && <FoodList foods={foods} />}
         
         <Separator />
         
-        {image && <PreviewImage uri={image} />}
+        {imageUri && <PreviewImage uri={imageUri} />}
       </ScrollView>
     </View>
   );
@@ -117,50 +159,50 @@ export default function CameraScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFCEB',
+    backgroundColor: THEME.COLORS.BACKGROUND,
   },
   scrollContent: {
     flexGrow: 1,
-    paddingVertical: 20,
+    paddingVertical: THEME.SPACING.MARGIN.TOP,
   },
   backButton: {
     position: 'absolute',
-    top: 20,
-    left: 10,
+    top: THEME.SPACING.MARGIN.TOP,
+    left: THEME.SPACING.PADDING,
     zIndex: 1,
   },
   arrow: {
-    marginTop: 20,
-    color: '#547260',
+    marginTop: THEME.SPACING.MARGIN.TOP,
+    color: THEME.COLORS.PRIMARY,
   },
   separator: {
     height: 1,
-    backgroundColor: '#E3E3E3',
+    backgroundColor: THEME.COLORS.SEPARATOR,
     width: '80%',
     alignSelf: 'center',
     opacity: 0.8,
-    marginVertical: 20,
+    marginVertical: THEME.SPACING.MARGIN.TOP,
   },
   previewImage: {
-    width: 200,
-    height: 200,
+    width: THEME.IMAGE.SIZE,
+    height: THEME.IMAGE.SIZE,
     alignSelf: 'center',
-    borderRadius: 10,
+    borderRadius: THEME.BORDER.RADIUS.IMAGE,
   },
   foodItem: {
-    padding: 10,
-    marginHorizontal: 20,
-    marginVertical: 5,
-    backgroundColor: '#F5F5F5',
-    borderRadius: 8,
+    padding: THEME.SPACING.PADDING,
+    marginHorizontal: THEME.SPACING.MARGIN.HORIZONTAL,
+    marginVertical: THEME.SPACING.MARGIN.VERTICAL,
+    backgroundColor: THEME.COLORS.FOOD_ITEM,
+    borderRadius: THEME.BORDER.RADIUS.BUTTON,
   },
   foodText: {
-    color: '#547260',
-    fontSize: 16,
+    color: THEME.COLORS.PRIMARY,
+    fontSize: THEME.FONT.SIZE.NORMAL,
   },
   errorText: {
-    color: '#FF6B6B',
+    color: THEME.COLORS.ERROR,
     textAlign: 'center',
-    marginVertical: 10,
+    marginVertical: THEME.SPACING.PADDING,
   },
 });
