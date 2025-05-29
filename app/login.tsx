@@ -1,12 +1,13 @@
 import { useState } from 'react';
 import { StyleSheet, Alert } from 'react-native';
 import LoginButton from '../components/loginButton';
-import { useDatabaseConnection } from '@/database/DatabaseConnection';
 import Logo from '../components/Logo';
-import { login } from '@/backend/user';
+import { login, UserDTO } from '@/backend/user';
 import { useNavigation } from 'expo-router';
 import { NativeStackNavigationProp } from 'react-native-screens/lib/typescript/native-stack/types';
 import { Text, TextInput, TouchableOpacity, View } from '@/components/Themed';
+import { AuthService } from '@/database/services/AuthService';
+import { User } from '@/database/types';
 
 // Types
 interface LoginPageProps {
@@ -22,7 +23,35 @@ interface LoginFormData {
   password: string;
 }
 
-// Custom Hook
+// Constants
+const THEME = {
+  COLORS: {
+    PRIMARY: '#547260',
+    SECONDARY: '#76A689',
+    BACKGROUND: {
+      LIGHT: '#FFFCEB',
+      DARK: '#3C3C3C',
+    },
+    TEXT: {
+      LIGHT: '#FFFCEB',
+      DARK: '#000000',
+    },
+  },
+  INPUT: {
+    HEIGHT: 45,
+    BORDER_RADIUS: 10,
+  },
+};
+
+const MESSAGES = {
+  ERROR: {
+    INVALID_CREDENTIALS: 'Credenciais inválidas. Por favor, tente novamente.',
+    GENERIC: 'Algo deu errado. Por favor, tente novamente mais tarde.',
+    LOGIN_PROCESS: 'Erro ao processar login. Por favor, tente novamente.',
+  },
+};
+
+// Custom Hooks
 const useLoginForm = () => {
   const [formData, setFormData] = useState<LoginFormData>({
     email: '',
@@ -30,7 +59,7 @@ const useLoginForm = () => {
   });
 
   const updateFormField = (field: keyof LoginFormData, value: string) => {
-    setFormData((prev) => ({
+    setFormData(prev => ({
       ...prev,
       [field]: value,
     }));
@@ -39,6 +68,45 @@ const useLoginForm = () => {
   return {
     formData,
     updateFormField,
+  };
+};
+
+const useAuthService = (onLoginSuccess: () => void) => {
+  const authService = AuthService.getInstance();
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+
+  const handleLoginSuccess = async (userData: UserDTO) => {
+    const userPassword = userData.password || '';
+    const userName = userData.name || 'Usuário';
+    const userEmail = userData.email || '';
+
+    try {
+      await authService.register({
+        email: userEmail,
+        password: userPassword,
+        name: userName,
+      });
+      console.log('Usuário inserido com sucesso');
+      onLoginSuccess();
+    } catch (error) {
+      if (error instanceof Error && error.message === 'Usuário já existe') {
+        const user = await authService.login(userEmail, userPassword);
+        if (user) {
+          console.log('Login realizado com sucesso');
+          onLoginSuccess();
+        } else {
+          Alert.alert('Erro', MESSAGES.ERROR.INVALID_CREDENTIALS);
+        }
+      } else {
+        console.error('Erro ao processar login:', error);
+        Alert.alert('Erro', MESSAGES.ERROR.LOGIN_PROCESS);
+      }
+    }
+  };
+
+  return {
+    handleLoginSuccess,
+    navigation,
   };
 };
 
@@ -53,7 +121,7 @@ const FormInput: React.FC<{
     <TextInput
       style={styles.input}
       placeholder={placeholder}
-      placeholderTextColor="#FFFCEB"
+      placeholderTextColor={THEME.COLORS.TEXT.LIGHT}
       value={value}
       onChangeText={onChangeText}
       secureTextEntry={secureTextEntry}
@@ -64,8 +132,12 @@ const FormInput: React.FC<{
 const RegisterLink: React.FC<{ onLogin: () => void }> = ({ onLogin }) => {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
 
+  const handleNavigateToRegister = () => {
+    navigation.navigate('user-register', { onLogin });
+  };
+
   return (
-    <TouchableOpacity onPress={() => navigation.navigate('user-register', { onLogin })}>
+    <TouchableOpacity onPress={handleNavigateToRegister}>
       <Text style={styles.text}>
         Não tem cadastro ainda?
         <Text style={styles.underline}> Cadastre-se</Text>
@@ -74,11 +146,32 @@ const RegisterLink: React.FC<{ onLogin: () => void }> = ({ onLogin }) => {
   );
 };
 
-const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
-  const { userRepository } = useDatabaseConnection();
-  const { formData, updateFormField } = useLoginForm();
+const LoginForm: React.FC<{
+  formData: LoginFormData;
+  updateFormField: (field: keyof LoginFormData, value: string) => void;
+  onSubmit: () => void;
+}> = ({ formData, updateFormField, onSubmit }) => (
+  <View style={styles.formContainer}>
+    <FormInput
+      placeholder="E-mail"
+      value={formData.email}
+      onChangeText={(text) => updateFormField('email', text)}
+    />
+    <FormInput
+      placeholder="Senha"
+      value={formData.password}
+      onChangeText={(text) => updateFormField('password', text)}
+      secureTextEntry
+    />
+    <LoginButton onPress={onSubmit} />
+  </View>
+);
 
-  const handleLogin = async () => {
+const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
+  const { formData, updateFormField } = useLoginForm();
+  const { handleLoginSuccess } = useAuthService(onLogin);
+
+  const handleSubmit = async () => {
     try {
       const response = await login({
         email: formData.email,
@@ -86,34 +179,24 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
       });
 
       if (response?.email) {
-        await userRepository.create(response);
-        onLogin();
+        await handleLoginSuccess(response);
       } else {
-        Alert.alert('Erro', 'Credenciais inválidas. Por favor, tente novamente.');
+        Alert.alert('Erro', MESSAGES.ERROR.INVALID_CREDENTIALS);
       }
     } catch (error) {
       console.error('Erro ao fazer login:', error);
-      Alert.alert('Erro', 'Algo deu errado. Por favor, tente novamente mais tarde.');
+      Alert.alert('Erro', MESSAGES.ERROR.GENERIC);
     }
   };
 
   return (
-    <View style={styles.container} lightColor="#FFFCEB" darkColor="#3C3C3C">
+    <View style={styles.container} lightColor={THEME.COLORS.BACKGROUND.LIGHT} darkColor={THEME.COLORS.BACKGROUND.DARK}>
       <Logo />
-      <View style={styles.formContainer}>
-        <FormInput
-          placeholder="E-mail"
-          value={formData.email}
-          onChangeText={(text) => updateFormField('email', text)}
-        />
-        <FormInput
-          placeholder="Senha"
-          value={formData.password}
-          onChangeText={(text) => updateFormField('password', text)}
-          secureTextEntry
-        />
-      </View>
-      <LoginButton onPress={handleLogin} />
+      <LoginForm
+        formData={formData}
+        updateFormField={updateFormField}
+        onSubmit={handleSubmit}
+      />
       <RegisterLink onLogin={onLogin} />
     </View>
   );
@@ -133,20 +216,20 @@ const styles = StyleSheet.create({
     marginBottom: 15,
   },
   input: {
-    height: 45,
-    borderRadius: 10,
-    backgroundColor: '#76A689',
-    color: '#FFFCEB',
+    height: THEME.INPUT.HEIGHT,
+    borderRadius: THEME.INPUT.BORDER_RADIUS,
+    backgroundColor: THEME.COLORS.SECONDARY,
+    color: THEME.COLORS.TEXT.LIGHT,
     paddingLeft: 10,
   },
   text: {
     marginTop: 20,
     fontSize: 16,
-    color: '#000',
+    color: THEME.COLORS.TEXT.DARK,
   },
   underline: {
     textDecorationLine: 'underline',
-    color: '#76A689',
+    color: THEME.COLORS.SECONDARY,
   },
 });
 

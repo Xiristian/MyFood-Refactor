@@ -1,38 +1,62 @@
-import { DataSource, Repository } from 'typeorm';
-import { Food } from '../entities/food-entity';
+import { BaseRepository } from './BaseRepository';
+import { Food } from '../types';
 
-export class FoodRepository {
-  private foodRepository: Repository<Food>;
-
-  constructor(connection: DataSource) {
-    this.foodRepository = connection.getRepository(Food);
+export class FoodRepository extends BaseRepository<Food> {
+  constructor() {
+    super('foods');
   }
 
-  // Selecionar alimentos por data e trazer informações da comida com a refeição
   async findFoodsByDate(date: Date): Promise<Food[]> {
-    return this.foodRepository
-      .createQueryBuilder('food')
-      .leftJoinAndSelect('food.meal', 'meal')
-      .where('food.date = :date', { date })
-      .getMany();
+    const startOfDay = new Date(date);
+    startOfDay.setHours(0, 0, 0, 0);
+    
+    const endOfDay = new Date(date);
+    endOfDay.setHours(23, 59, 59, 999);
+
+    return this.db.executeQuery<Food>(
+      'SELECT * FROM foods WHERE date >= ? AND date <= ?',
+      [startOfDay.toISOString(), endOfDay.toISOString()]
+    );
   }
 
-  // Inserir um novo alimento
-  async createFood(foodData: Partial<Food>): Promise<Food> {
-    const food = this.foodRepository.create(foodData);
-    return this.foodRepository.save(food);
+  async create(food: Omit<Food, 'id'>): Promise<Food> {
+    const id = await this.db.executeInsert(
+      'INSERT INTO foods (name, calories, mealId, date) VALUES (?, ?, ?, ?)',
+      [food.name, food.calories || null, food.mealId, food.date.toISOString()]
+    );
+    return { ...food, id };
   }
 
-  // Atualizar um alimento por ID
-  async updateFood(id: number, foodData: Partial<Food>): Promise<Food | undefined> {
-    await this.foodRepository.update(id, foodData);
-    const updatedFood = await this.foodRepository.findOne({ where: { id } }); // Passando id como parte do objeto de opções
-    return updatedFood || undefined; // Retornar undefined se updatedFood for null
-  }
+  async update(id: number, food: Partial<Food>): Promise<void> {
+    const currentFood = await this.findById(id);
+    if (!currentFood) throw new Error('Alimento não encontrado');
 
-  // Excluir um alimento por ID
-  async deleteFood(id: number): Promise<boolean> {
-    const result = await this.foodRepository.delete(id);
-    return result.affected === 1;
+    const updates: string[] = [];
+    const values: any[] = [];
+
+    if (food.name) {
+      updates.push('name = ?');
+      values.push(food.name);
+    }
+    if (food.calories !== undefined) {
+      updates.push('calories = ?');
+      values.push(food.calories);
+    }
+    if (food.mealId) {
+      updates.push('mealId = ?');
+      values.push(food.mealId);
+    }
+    if (food.date) {
+      updates.push('date = ?');
+      values.push(food.date.toISOString());
+    }
+
+    if (updates.length > 0) {
+      values.push(id);
+      await this.db.executeQuery(
+        `UPDATE foods SET ${updates.join(', ')} WHERE id = ?`,
+        values
+      );
+    }
   }
 }

@@ -1,29 +1,56 @@
 import React, { useState } from 'react';
 import { StyleSheet } from 'react-native';
 import { Text, TextInput, TouchableOpacity, View } from '@/components/Themed';
-import { colors } from 'react-native-elements';
-import { useDatabaseConnection } from '@/database/DatabaseConnection';
-import { useNavigation } from 'expo-router';
+import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
+import { MealService } from '@/database/services/MealService';
+
+// Types
+interface RouteParams {
+  loadData: () => Promise<void>;
+}
 
 // Constants
-const OVERLAY_OPACITY = 0.9;
-const MODAL_WIDTH_PERCENTAGE = '80%';
-const MODAL_TOP_OFFSET = '-10%';
+const THEME = {
+  OVERLAY: {
+    OPACITY: 0.9,
+    BACKGROUND: {
+      LIGHT: '#FFFCEB',
+      DARK: '#3C3C3C',
+    },
+  },
+  COLORS: {
+    PRIMARY: '#547260',
+    SECONDARY: '#76A689',
+    TEXT: {
+      LIGHT: '#FFFCEB',
+      DARK: '#FFFFFF',
+    },
+  },
+  MODAL: {
+    WIDTH: 80,
+    TOP_OFFSET: -10,
+    HEIGHT: 300,
+    BORDER_RADIUS: 30,
+    BORDER_WIDTH: 5,
+  },
+};
 
 // Custom Hooks
-const useCreateMeal = () => {
-  const [description, setDescription] = useState('');
-  const { mealRepository } = useDatabaseConnection();
+const useCreateMeal = (onMealCreated: () => Promise<void>) => {
+  const [mealName, setMealName] = useState('');
+  const mealService = MealService.getInstance();
   const navigation = useNavigation();
 
   const handleCreateMeal = async () => {
-    if (!description.trim()) return;
+    if (!mealName.trim()) return;
 
     try {
-      await mealRepository.createMeal({
-        name: description,
+      await mealService.createMeal({
+        name: mealName,
         iconName: 'sunrise',
+        position: 0
       });
+      await onMealCreated();
       navigation.goBack();
     } catch (error) {
       console.error('Erro ao criar refeição:', error);
@@ -31,8 +58,8 @@ const useCreateMeal = () => {
   };
 
   return {
-    description,
-    setDescription,
+    mealName,
+    setMealName,
     handleCreateMeal,
   };
 };
@@ -41,41 +68,56 @@ const useCreateMeal = () => {
 const Overlay: React.FC = () => (
   <View
     style={styles.overlay}
-    lightColor={`rgba(0, 0, 0, ${OVERLAY_OPACITY})`}
-    darkColor={`rgba(0, 0, 0, ${OVERLAY_OPACITY})`}
+    lightColor={`rgba(0, 0, 0, ${THEME.OVERLAY.OPACITY})`}
+    darkColor={`rgba(0, 0, 0, ${THEME.OVERLAY.OPACITY})`}
   />
 );
 
+const MealNameInput: React.FC<{
+  value: string;
+  onChangeText: (text: string) => void;
+}> = ({ value, onChangeText }) => (
+  <TextInput
+    style={styles.input}
+    value={value}
+    onChangeText={onChangeText}
+    placeholder="Nome da refeição"
+    placeholderTextColor={THEME.COLORS.TEXT.LIGHT}
+  />
+);
+
+const CreateButton: React.FC<{
+  onPress: () => void;
+}> = ({ onPress }) => (
+  <TouchableOpacity style={styles.button} onPress={onPress}>
+    <Text style={styles.buttonText}>Criar</Text>
+  </TouchableOpacity>
+);
+
 const ModalContent: React.FC<{
-  description: string;
-  onDescriptionChange: (text: string) => void;
+  mealName: string;
+  onMealNameChange: (text: string) => void;
   onSubmit: () => void;
-}> = ({ description, onDescriptionChange, onSubmit }) => (
-  <View style={styles.modal} lightColor="#FFFCEB" darkColor="#3C3C3C">
-    <Text style={styles.title}>Refeição</Text>
-    <TextInput
-      style={styles.input}
-      value={description}
-      onChangeText={onDescriptionChange}
-      placeholder="Descrição"
-      placeholderTextColor="#FFFCEB"
-    />
-    <TouchableOpacity style={styles.button} onPress={onSubmit}>
-      <Text style={styles.buttonText}>Criar</Text>
-    </TouchableOpacity>
+}> = ({ mealName, onMealNameChange, onSubmit }) => (
+  <View style={styles.modal} lightColor={THEME.OVERLAY.BACKGROUND.LIGHT} darkColor={THEME.OVERLAY.BACKGROUND.DARK}>
+    <Text style={styles.title}>Nova Refeição</Text>
+    <MealNameInput value={mealName} onChangeText={onMealNameChange} />
+    <CreateButton onPress={onSubmit} />
   </View>
 );
 
-export default function ModalScreen() {
-  const { description, setDescription, handleCreateMeal } = useCreateMeal();
+export default function CreateMealModal() {
+  const route = useRoute<RouteProp<{ params: RouteParams }>>();
+  const { loadData } = route.params;
+  const { mealName, setMealName, handleCreateMeal } = useCreateMeal(loadData);
 
   return (
     <>
       <Overlay />
       <View style={styles.container}>
         <ModalContent
-          description={description}
-          onDescriptionChange={setDescription}
+          mealName={mealName}
+          onMealNameChange={setMealName}
           onSubmit={handleCreateMeal}
         />
       </View>
@@ -93,15 +135,14 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
     position: 'absolute',
-    backgroundColor: colors.grey0,
   },
   modal: {
-    height: 300,
-    width: MODAL_WIDTH_PERCENTAGE,
-    top: MODAL_TOP_OFFSET,
-    borderColor: colors.black,
-    borderWidth: 5,
-    borderRadius: 30,
+    height: THEME.MODAL.HEIGHT,
+    width: `${THEME.MODAL.WIDTH}%`,
+    top: `${THEME.MODAL.TOP_OFFSET}%`,
+    borderColor: '#000',
+    borderWidth: THEME.MODAL.BORDER_WIDTH,
+    borderRadius: THEME.MODAL.BORDER_RADIUS,
     padding: 20,
     alignItems: 'center',
     paddingTop: '20%',
@@ -109,18 +150,18 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#547260',
+    color: THEME.COLORS.PRIMARY,
     paddingBottom: 20,
   },
   input: {
     width: '100%',
     height: 40,
     borderWidth: 1,
-    borderColor: '#547260',
-    backgroundColor: '#547260',
+    borderColor: THEME.COLORS.PRIMARY,
+    backgroundColor: THEME.COLORS.PRIMARY,
     borderRadius: 10,
     paddingHorizontal: 10,
-    color: '#FFF',
+    color: THEME.COLORS.TEXT.DARK,
   },
   button: {
     height: 45,
@@ -128,12 +169,12 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     marginBottom: 5,
     marginTop: 45,
-    backgroundColor: '#76A689',
+    backgroundColor: THEME.COLORS.SECONDARY,
     justifyContent: 'center',
     alignItems: 'center',
   },
   buttonText: {
-    color: '#FFFFFF',
+    color: THEME.COLORS.TEXT.DARK,
     fontSize: 16,
     fontWeight: 'bold',
   },

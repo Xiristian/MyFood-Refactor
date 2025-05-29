@@ -1,101 +1,35 @@
-import * as SQLite from 'expo-sqlite';
+import React, { createContext, useContext, useEffect, useState } from 'react';
 import { Text, View } from '@/components/Themed';
-import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
-import { DataSource, QueryRunner } from 'typeorm';
-import { FoodRepository } from './repositories/FoodRepository';
-import { MealRepository } from './repositories/MealRepository';
-import { Meal } from './entities/meal-entity';
-import { Food } from './entities/food-entity';
-import { UserRepository } from './repositories/UserRepository';
-import { User } from './entities/user-entity';
+import { DatabaseService } from './services/DatabaseService';
 
 interface DatabaseConnectionContextData {
-  foodRepository: FoodRepository;
-  mealRepository: MealRepository;
-  userRepository: UserRepository;
-  connection: DataSource | null;
-  queryRunner: QueryRunner | null;
+  db: DatabaseService;
 }
 
 const DatabaseConnectionContext = createContext<DatabaseConnectionContextData>(
-  {} as DatabaseConnectionContextData,
+  {} as DatabaseConnectionContextData
 );
-
-const queryCache = new Map<string, any>();
-const CACHE_DURATION = 5 * 60 * 1000; // 5 minutos
 
 export const DatabaseConnectionProvider: React.FC<{
   children: React.ReactNode;
 }> = ({ children }) => {
-  const [connection, setConnection] = useState<DataSource | null>(null);
-  const [queryRunner, setQueryRunner] = useState<QueryRunner | null>(null);
   const [isError, setIsError] = useState<boolean>(false);
-
-  const connect = useCallback(async () => {
-    try {
-      const createdConnection = new DataSource({
-        type: 'expo',
-        database: 'myfood.db',
-        driver: SQLite,
-        entities: [Meal, Food, User],
-        synchronize: true,
-        logging: false, 
-        cache: {
-          duration: CACHE_DURATION,
-        },
-      });
-
-      const initializedConnection = await createdConnection.initialize();
-      
-      // Criar índices em uma transação única
-      const runner = initializedConnection.createQueryRunner();
-      await runner.connect();
-      await runner.startTransaction();
-      
-      try {
-        await runner.query('CREATE INDEX IF NOT EXISTS idx_meal_date ON meal (date)');
-        await runner.query('CREATE INDEX IF NOT EXISTS idx_food_meal ON food (mealId)');
-        await runner.commitTransaction();
-      } catch (error) {
-        await runner.rollbackTransaction();
-        console.error('Erro ao criar índices:', error);
-      }
-
-      // Configurar PRAGMAs após inicialização
-      await runner.query('PRAGMA journal_mode = WAL');
-      await runner.query('PRAGMA synchronous = NORMAL');
-      await runner.query('PRAGMA temp_store = MEMORY');
-      await runner.query('PRAGMA cache_size = 10000');
-      
-      setConnection(initializedConnection);
-      setQueryRunner(runner);
-    } catch (error) {
-      console.error('Erro na conexão com o banco:', error);
-      setIsError(true);
-    }
-  }, []);
+  const [isInitialized, setIsInitialized] = useState<boolean>(false);
 
   useEffect(() => {
-    if (!connection) {
-      connect();
-    }
-
-    return () => {
-      const cleanup = async () => {
-        try {
-          if (queryRunner) {
-            await queryRunner.release();
-          }
-          if (connection) {
-            await connection.destroy();
-          }
-        } catch (error) {
-          console.error('Erro no cleanup:', error);
-        }
-      };
-      cleanup();
+    const initializeDatabase = async () => {
+      try {
+        const db = DatabaseService.getInstance();
+        await db.initializeDatabase();
+        setIsInitialized(true);
+      } catch (error) {
+        console.error('Erro na inicialização do banco:', error);
+        setIsError(true);
+      }
     };
-  }, [connect, connection]);
+
+    initializeDatabase();
+  }, []);
 
   if (isError) {
     return (
@@ -113,7 +47,7 @@ export const DatabaseConnectionProvider: React.FC<{
     );
   }
 
-  if (!connection || !queryRunner) {
+  if (!isInitialized) {
     return (
       <View
         style={{
@@ -132,11 +66,7 @@ export const DatabaseConnectionProvider: React.FC<{
   return (
     <DatabaseConnectionContext.Provider
       value={{
-        foodRepository: new FoodRepository(connection),
-        mealRepository: new MealRepository(connection, queryCache),
-        userRepository: new UserRepository(connection),
-        connection,
-        queryRunner,
+        db: DatabaseService.getInstance(),
       }}>
       {children}
     </DatabaseConnectionContext.Provider>
@@ -151,9 +81,4 @@ export function useDatabaseConnection() {
   }
 
   return context;
-}
-
-// Função utilitária para limpar o cache
-export function clearQueryCache() {
-  queryCache.clear();
 }

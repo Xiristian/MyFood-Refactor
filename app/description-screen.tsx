@@ -6,9 +6,9 @@ import SearchBar from '@/components/SearchBar';
 import { router } from 'expo-router';
 import { FAB } from 'react-native-paper';
 import { RouteProp, useRoute } from '@react-navigation/native';
-import { useDatabaseConnection } from '@/database/DatabaseConnection';
 import { FoodDTO, getFoods } from '@/backend/get-foods';
 import { isTest } from '@/backend/test';
+import { MealService } from '@/database/services/MealService';
 
 // Types
 interface RouteParams {
@@ -24,12 +24,54 @@ interface FoodCardProps {
   isSelected: boolean;
 }
 
+// Constants
+const THEME = {
+  COLORS: {
+    PRIMARY: '#547260',
+    SECONDARY: '#76A689',
+    BACKGROUND: {
+      LIGHT: '#FFFCEB',
+      DARK: '#3C3C3C',
+    },
+    BORDER: {
+      SELECTED: '#76A689',
+      TRANSPARENT: 'transparent',
+    },
+    TEXT: '#547260',
+    ICON: '#547260',
+    FAB: '#344e41',
+  },
+  SPACING: {
+    PADDING: {
+      VERTICAL: 10,
+      HORIZONTAL: 15,
+    },
+    MARGIN: {
+      TOP: 10,
+      HORIZONTAL: 10,
+      BOTTOM: 50,
+    },
+  },
+  BORDER: {
+    RADIUS: 10,
+    WIDTH: 2,
+  },
+  FONT: {
+    SIZE: {
+      TITLE: 20,
+      FOOD_NAME: 18,
+      DETAILS: 16,
+      NUMBER: 16,
+    },
+  },
+};
+
 // Custom Hooks
 const useSearchFood = () => {
   const [searchResults, setSearchResults] = useState<FoodDTO[]>([]);
   const [searchText, setSearchText] = useState('');
   const [searchPage, setSearchPage] = useState(0);
-  const [loading, setLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
   const handleSearch = async (text: string) => {
     setSearchText(text);
@@ -38,35 +80,34 @@ const useSearchFood = () => {
       return;
     }
 
-    let page = searchPage;
+    let currentPage = searchPage;
     if (text !== searchText) {
-      setLoading(true);
-      page = 0;
+      setIsLoading(true);
+      currentPage = 0;
       setSearchPage(0);
     }
 
     try {
-      const result = await getFoods(text, page);
-      if (page === 0 || isTest) {
+      const result = await getFoods(text, currentPage);
+      if (currentPage === 0 || isTest) {
         setSearchResults(result);
       } else {
-        setSearchResults((prev) => [...prev, ...result]);
+        setSearchResults(prevResults => [...prevResults, ...result]);
       }
     } catch (error) {
       console.error('Erro ao buscar alimentos:', error);
     } finally {
-      setLoading(false);
+      setIsLoading(false);
     }
   };
 
   const loadMoreResults = () => {
-    setSearchPage((prev) => prev + 1);
+    setSearchPage(prevPage => prevPage + 1);
   };
 
   return {
     searchResults,
-    searchText,
-    loading,
+    isLoading,
     handleSearch,
     loadMoreResults,
   };
@@ -76,14 +117,41 @@ const useSelectedItems = () => {
   const [selectedItems, setSelectedItems] = useState<string[]>([]);
 
   const toggleItemSelection = (id: string) => {
-    setSelectedItems((prev) =>
-      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id],
+    setSelectedItems(prevItems =>
+      prevItems.includes(id) ? prevItems.filter(item => item !== id) : [...prevItems, id],
     );
   };
 
   return {
     selectedItems,
     toggleItemSelection,
+  };
+};
+
+const useMealService = (mealId: number, date: Date, onSuccess: () => Promise<void>) => {
+  const mealService = MealService.getInstance();
+
+  const addFoodsToMeal = async (selectedFoods: FoodDTO[]) => {
+    try {
+      await Promise.all(
+        selectedFoods.map(food =>
+          mealService.addFoodToMeal(mealId, {
+            name: food.food_name,
+            calories: food.calories,
+            mealId: mealId,
+            date: date
+          })
+        )
+      );
+      await onSuccess();
+      router.back();
+    } catch (error) {
+      console.error('Erro ao adicionar alimentos:', error);
+    }
+  };
+
+  return {
+    addFoodsToMeal,
   };
 };
 
@@ -103,10 +171,10 @@ const ActionButtons: React.FC<{
 }> = ({ onSelect, onEdit }) => (
   <View style={styles.iconsContainer}>
     <TouchableOpacity onPress={onSelect}>
-      <Feather name="plus-circle" size={21} color="#547260" style={styles.icon} />
+      <Feather name="plus-circle" size={21} color={THEME.COLORS.ICON} style={styles.icon} />
     </TouchableOpacity>
     <TouchableOpacity onPress={onEdit}>
-      <Feather name="edit" size={21} color="#547260" style={styles.icon} />
+      <Feather name="edit" size={21} color={THEME.COLORS.ICON} style={styles.icon} />
     </TouchableOpacity>
   </View>
 );
@@ -147,46 +215,30 @@ const AddButton: React.FC<{ onPress: () => void }> = ({ onPress }) => (
   </View>
 );
 
+const LoadingIndicator: React.FC = () => (
+  <ActivityIndicator size="large" color={THEME.COLORS.PRIMARY} />
+);
+
 export default function DescriptionScreen() {
   const route = useRoute<RouteProp<{ params: RouteParams }>>();
   const { id: mealId, date, loadData } = route.params;
-  const { mealRepository } = useDatabaseConnection();
-  const { searchResults, loading, handleSearch, loadMoreResults } = useSearchFood();
+  const { searchResults, isLoading, handleSearch, loadMoreResults } = useSearchFood();
   const { selectedItems, toggleItemSelection } = useSelectedItems();
+  const { addFoodsToMeal } = useMealService(mealId, date, loadData);
 
-  const handleAddItems = async () => {
+  const handleAddSelectedFoods = async () => {
     if (selectedItems.length === 0) return;
 
-    try {
-      const selectedFoods = searchResults.filter((food) =>
-        selectedItems.includes(food.food_id)
-      );
+    const selectedFoods = searchResults.filter(food =>
+      selectedItems.includes(food.food_id)
+    );
 
-      await Promise.all(
-        selectedFoods.map((food) =>
-          mealRepository.createFood(
-            food.food_name,
-            food.quantity,
-            food.calories,
-            date,
-            mealId,
-            food.unit,
-          )
-        )
-      );
-
-      await loadData();
-      router.back();
-    } catch (error) {
-      console.error('Erro ao adicionar alimentos:', error);
-    }
+    await addFoodsToMeal(selectedFoods);
   };
 
   return (
-    <View style={styles.container} darkColor="#3C3C3C" lightColor="#FFFCEB">
-      <Text style={styles.title} darkColor="#547260" lightColor="#547260">
-        Adicionar Alimentos
-      </Text>
+    <View style={styles.container} darkColor={THEME.COLORS.BACKGROUND.DARK} lightColor={THEME.COLORS.BACKGROUND.LIGHT}>
+      <Text style={styles.title}>Adicionar Alimentos</Text>
       
       <SearchBar placeholder="Digite um alimento" onChangeText={handleSearch} />
       
@@ -194,7 +246,7 @@ export default function DescriptionScreen() {
         data={searchResults}
         keyExtractor={(item) => item.food_id}
         onEndReached={loadMoreResults}
-        ListFooterComponent={loading ? <ActivityIndicator size="large" /> : null}
+        ListFooterComponent={isLoading ? <LoadingIndicator /> : null}
         renderItem={({ item, index }) => (
           <FoodCard
             item={item}
@@ -205,7 +257,7 @@ export default function DescriptionScreen() {
         )}
       />
       
-      <AddButton onPress={handleAddItems} />
+      <AddButton onPress={handleAddSelectedFoods} />
     </View>
   );
 }
@@ -215,12 +267,12 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   title: {
-    fontSize: 20,
+    fontSize: THEME.FONT.SIZE.TITLE,
     fontWeight: 'bold',
-    marginBottom: 10,
+    marginBottom: THEME.SPACING.MARGIN.TOP,
     marginTop: 20,
     textAlign: 'center',
-    color: '#547260',
+    color: THEME.COLORS.TEXT,
   },
   separator: {
     height: 1,
@@ -232,36 +284,36 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 10,
-    paddingHorizontal: 15,
-    marginTop: 10,
-    marginHorizontal: 10,
-    borderRadius: 10,
-    borderWidth: 2,
-    borderColor: 'transparent',
+    paddingVertical: THEME.SPACING.PADDING.VERTICAL,
+    paddingHorizontal: THEME.SPACING.PADDING.HORIZONTAL,
+    marginTop: THEME.SPACING.MARGIN.TOP,
+    marginHorizontal: THEME.SPACING.MARGIN.HORIZONTAL,
+    borderRadius: THEME.BORDER.RADIUS,
+    borderWidth: THEME.BORDER.WIDTH,
+    borderColor: THEME.COLORS.BORDER.TRANSPARENT,
   },
   selectedItem: {
-    borderColor: '#76A689',
+    borderColor: THEME.COLORS.BORDER.SELECTED,
   },
   numberContainer: {
     alignItems: 'center',
-    marginRight: 10,
+    marginRight: THEME.SPACING.MARGIN.HORIZONTAL,
   },
   numberText: {
-    color: '#547260',
-    fontSize: 16,
+    color: THEME.COLORS.TEXT,
+    fontSize: THEME.FONT.SIZE.NUMBER,
     fontWeight: 'bold',
   },
   foodInfo: {
     flex: 1,
   },
   foodName: {
-    color: '#547260',
-    fontSize: 18,
+    color: THEME.COLORS.TEXT,
+    fontSize: THEME.FONT.SIZE.FOOD_NAME,
     fontWeight: 'bold',
   },
   foodDetails: {
-    color: '#547260',
+    color: THEME.COLORS.TEXT,
     marginTop: 5,
   },
   iconsContainer: {
@@ -269,14 +321,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   icon: {
-    marginRight: 10,
+    marginRight: THEME.SPACING.MARGIN.HORIZONTAL,
     opacity: 0.8,
   },
   bottomButtons: {
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 15,
-    marginBottom: 50,
+    paddingHorizontal: THEME.SPACING.PADDING.HORIZONTAL,
+    marginBottom: THEME.SPACING.MARGIN.BOTTOM,
   },
   buttonContainer: {
     flexDirection: 'row',
@@ -284,7 +336,7 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   fab: {
-    backgroundColor: '#344e41',
+    backgroundColor: THEME.COLORS.FAB,
     position: 'absolute',
     margin: 16,
     right: 0,

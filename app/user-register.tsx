@@ -12,9 +12,9 @@ import {
 import { Text, View, TextInput } from '@/components/Themed';
 import * as ImagePicker from 'expo-image-picker';
 import { FontAwesome } from '@expo/vector-icons';
-import { login, register } from '@/backend/user';
-import { useDatabaseConnection } from '@/database/DatabaseConnection';
+import { register, UserDTO } from '@/backend/user';
 import { useNavigation } from 'expo-router';
+import { AuthService } from '@/database/services/AuthService';
 
 // Types
 interface RegisterPageProps {
@@ -31,6 +31,8 @@ interface RegisterFormData {
   targetWeight: string;
   password: string;
   confirmPassword: string;
+  weight: string;
+  goal: string;
 }
 
 // Custom Hooks
@@ -45,6 +47,8 @@ const useRegisterForm = () => {
     targetWeight: '',
     password: '',
     confirmPassword: '',
+    weight: '',
+    goal: '',
   });
 
   const updateFormField = (field: keyof RegisterFormData, value: string | null) => {
@@ -64,6 +68,8 @@ const useRegisterForm = () => {
       password,
       confirmPassword,
       email,
+      weight,
+      goal,
     } = formData;
 
     if (
@@ -74,7 +80,9 @@ const useRegisterForm = () => {
       !targetWeight ||
       !password ||
       !confirmPassword ||
-      !email
+      !email ||
+      !weight ||
+      !goal
     ) {
       throw new Error('Por favor, preencha todos os campos.');
     }
@@ -121,19 +129,18 @@ const ImageSelector: React.FC<{
 };
 
 const FormInput: React.FC<{
-  label: string;
+  placeholder: string;
   value: string;
   onChangeText: (text: string) => void;
-  keyboardType?: 'default' | 'numeric';
   secureTextEntry?: boolean;
-}> = ({ label, value, onChangeText, keyboardType = 'default', secureTextEntry }) => (
+}> = ({ placeholder, value, onChangeText, secureTextEntry }) => (
   <View style={styles.inputContainer}>
-    <Text style={styles.label}>{label}</Text>
     <TextInput
       style={styles.input}
+      placeholder={placeholder}
+      placeholderTextColor="#FFFCEB"
       value={value}
       onChangeText={onChangeText}
-      keyboardType={keyboardType}
       secureTextEntry={secureTextEntry}
     />
   </View>
@@ -141,37 +148,42 @@ const FormInput: React.FC<{
 
 const RegisterPage: React.FC<RegisterPageProps> = ({ onLogin }) => {
   const navigation = useNavigation();
-  const { userRepository } = useDatabaseConnection();
+  const authService = AuthService.getInstance();
   const { formData, updateFormField, validateForm } = useRegisterForm();
 
   const handleRegister = async () => {
     try {
       validateForm();
 
-      await register({
-        email: formData.email,
+      const userData: UserDTO = {
         name: formData.name,
+        email: formData.email,
         password: formData.password,
         age: parseInt(formData.age),
-        goal: parseFloat(formData.targetWeight),
-        weight: parseFloat(formData.currentWeight),
-        height: parseFloat(formData.height),
-      });
+        height: parseInt(formData.height),
+        weight: parseInt(formData.weight),
+        goal: parseInt(formData.goal),
+      };
 
-      const response = await login({
-        email: formData.email,
-        password: formData.password,
-      });
+      const response = await register(userData);
 
-      if (response?.name) {
-        await userRepository.create(response);
-        onLogin ? onLogin() : navigation.goBack();
+      if (response === 'Sucesso ao cadastrar!') {
+        await authService.register({
+          name: formData.name,
+          email: formData.email,
+          password: formData.password,
+          image: formData.image || undefined
+        });
+        
+        Alert.alert('Sucesso', 'Usuário cadastrado com sucesso!');
+        navigation.goBack();
+        onLogin();
       } else {
-        Alert.alert('Erro', 'Credenciais inválidas. Por favor, tente novamente.');
+        Alert.alert('Erro', response);
       }
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Algo deu errado. Por favor, tente novamente mais tarde.';
-      Alert.alert('Erro', message);
+      console.error('Erro ao registrar:', error);
+      Alert.alert('Erro', 'Algo deu errado. Por favor, tente novamente mais tarde.');
     }
   };
 
@@ -187,7 +199,7 @@ const RegisterPage: React.FC<RegisterPageProps> = ({ onLogin }) => {
           />
 
           <FormInput
-            label="Nome"
+            placeholder="Nome"
             value={formData.name}
             onChangeText={(text) => updateFormField('name', text)}
           />
@@ -195,18 +207,16 @@ const RegisterPage: React.FC<RegisterPageProps> = ({ onLogin }) => {
           <View style={[styles.row]} lightColor="#FFFCEB" darkColor="#3C3C3C">
             <View style={styles.halfWidthContainer}>
               <FormInput
-                label="Idade"
+                placeholder="Idade"
                 value={formData.age}
                 onChangeText={(text) => updateFormField('age', text)}
-                keyboardType="numeric"
               />
             </View>
             <View style={styles.halfWidthContainer}>
               <FormInput
-                label="Altura (cm)"
+                placeholder="Altura (cm)"
                 value={formData.height}
                 onChangeText={(text) => updateFormField('height', text)}
-                keyboardType="numeric"
               />
             </View>
           </View>
@@ -214,37 +224,35 @@ const RegisterPage: React.FC<RegisterPageProps> = ({ onLogin }) => {
           <View style={[styles.row]} lightColor="#FFFCEB" darkColor="#3C3C3C">
             <View style={styles.halfWidthContainer}>
               <FormInput
-                label="Peso Atual (kg)"
-                value={formData.currentWeight}
-                onChangeText={(text) => updateFormField('currentWeight', text)}
-                keyboardType="numeric"
+                placeholder="Peso (kg)"
+                value={formData.weight}
+                onChangeText={(text) => updateFormField('weight', text)}
               />
             </View>
             <View style={styles.halfWidthContainer}>
               <FormInput
-                label="Peso Meta (kg)"
-                value={formData.targetWeight}
-                onChangeText={(text) => updateFormField('targetWeight', text)}
-                keyboardType="numeric"
+                placeholder="Meta de Peso (kg)"
+                value={formData.goal}
+                onChangeText={(text) => updateFormField('goal', text)}
               />
             </View>
           </View>
 
           <FormInput
-            label="E-Mail"
+            placeholder="E-Mail"
             value={formData.email}
             onChangeText={(text) => updateFormField('email', text)}
           />
 
           <FormInput
-            label="Senha"
+            placeholder="Senha"
             value={formData.password}
             onChangeText={(text) => updateFormField('password', text)}
             secureTextEntry
           />
 
           <FormInput
-            label="Confirmar Senha"
+            placeholder="Confirmar Senha"
             value={formData.confirmPassword}
             onChangeText={(text) => updateFormField('confirmPassword', text)}
             secureTextEntry
@@ -281,10 +289,6 @@ const styles = StyleSheet.create({
   inputContainer: {
     width: '100%',
     marginBottom: 20,
-  },
-  label: {
-    color: '#FFF',
-    marginBottom: 5,
   },
   input: {
     width: '100%',

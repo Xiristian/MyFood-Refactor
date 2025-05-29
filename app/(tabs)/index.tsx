@@ -2,51 +2,52 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { StyleSheet, TouchableOpacity, FlatList, Platform } from 'react-native';
 import { Text, View } from '@/components/Themed';
 import { Feather } from '@expo/vector-icons';
-import { Meal } from '@/database/entities/meal-entity';
-import { useDatabaseConnection } from '@/database/DatabaseConnection';
 import { useFocusEffect, useNavigation } from 'expo-router';
 import RenderFoods from '@/components/RenderFoods';
 import { NativeStackNavigationProp } from 'react-native-screens/lib/typescript/native-stack/types';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import moment from 'moment';
+import { MealService } from '@/database/services/MealService';
+import { Food, ItemMeal } from '@/database/types';
 
 // Types
-interface ItemMeal extends Meal {
-  isExpanded?: boolean;
-}
-
 type RootStackParamList = {
-  modal: any;
+  modal: { loadData: () => Promise<void> };
   camera: { id: number; date: Date; loadData: () => Promise<void> };
   'description-screen': { id: number; date: Date; loadData: () => Promise<void> };
 };
 
 // Constants
-const INITIAL_MEALS: ItemMeal[] = [
-  { id: 1, name: 'Desjejum', iconName: 'sunrise', order: 0, foods: [] },
-  { id: 2, name: 'Café da manhã', iconName: 'coffee', order: 0, foods: [] },
-  { id: 3, name: 'Almoço', iconName: 'sun', order: 0, foods: [] },
-  { id: 4, name: 'Café da tarde', iconName: 'coffee', order: 0, foods: [] },
-  { id: 5, name: 'Jantar', iconName: 'moon', order: 0, foods: [] },
+const DEFAULT_MEALS = [
+  { name: 'Desjejum', iconName: 'sunrise', position: 0 },
+  { name: 'Café da manhã', iconName: 'coffee', position: 1 },
+  { name: 'Almoço', iconName: 'sun', position: 2 },
+  { name: 'Café da tarde', iconName: 'coffee', position: 3 },
+  { name: 'Jantar', iconName: 'moon', position: 4 },
 ];
 
-// Custom Hook
-const useMealData = (initialDate: Date) => {
-  const [data, setData] = useState<ItemMeal[]>([]);
-  const [date, setDate] = useState(initialDate);
-  const { mealRepository } = useDatabaseConnection();
+const ICON_MAP = {
+  sunrise: 'sunrise',
+  coffee: 'coffee',
+  sun: 'sun',
+  moon: 'moon',
+} as const;
 
-  const loadData = async () => {
+// Custom Hooks
+const useMealData = (initialDate: Date) => {
+  const [meals, setMeals] = useState<ItemMeal[]>([]);
+  const [selectedDate, setSelectedDate] = useState(initialDate);
+  const mealService = MealService.getInstance();
+
+  const loadMeals = async () => {
     try {
-      let meals = await mealRepository.findAll();
-      if (!meals || meals.length === 0) {
-        meals = await mealRepository.createMeals(INITIAL_MEALS);
-      }
-      meals = await mealRepository.findByDate(date);
-      setData((prevData) => {
-        return meals.map((meal, index) => ({
+      await mealService.initializeDefaultMeals(DEFAULT_MEALS);
+      const mealsWithFoods = await mealService.getMealsWithFoods(selectedDate);
+
+      setMeals(prevMeals => {
+        return mealsWithFoods.map((meal, index) => ({
           ...meal,
-          isExpanded: prevData[index]?.isExpanded,
+          isExpanded: prevMeals[index]?.isExpanded,
         }));
       });
     } catch (error) {
@@ -55,31 +56,30 @@ const useMealData = (initialDate: Date) => {
   };
 
   useEffect(() => {
-    loadData();
-  }, [date]);
+    loadMeals();
+  }, [selectedDate]);
 
-  const toggleExpansion = (id: number) => {
-    setData((prevData) =>
-      prevData.map((item) => ({
-        ...item,
-        isExpanded: item.id === id ? !item.isExpanded : item.isExpanded,
+  const toggleMealExpansion = (id: number) => {
+    setMeals(prevMeals =>
+      prevMeals.map(meal => ({
+        ...meal,
+        isExpanded: meal.id === id ? !meal.isExpanded : meal.isExpanded,
       }))
     );
   };
 
-  return { data, date, setDate, loadData, toggleExpansion };
+  return {
+    meals,
+    selectedDate,
+    setSelectedDate,
+    loadMeals,
+    toggleMealExpansion,
+  };
 };
 
 // Components
 const MealIcon: React.FC<{ iconName: string }> = ({ iconName }) => {
-  const iconMap = {
-    sunrise: 'sunrise',
-    coffee: 'coffee',
-    sun: 'sun',
-    moon: 'moon',
-  };
-
-  const iconName_ = iconMap[iconName as keyof typeof iconMap];
+  const iconName_ = ICON_MAP[iconName as keyof typeof ICON_MAP];
   return iconName_ ? (
     <Feather name={iconName_ as any} size={24} color="#76A689" style={styles.icon} />
   ) : null;
@@ -92,20 +92,20 @@ const ExpandedActions: React.FC<{
 }> = ({ id, date, loadData }) => {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
 
-  const navigateToScreen = (screen: 'camera' | 'description-screen') => {
+  const handleNavigate = (screen: 'camera' | 'description-screen') => {
     navigation.navigate(screen, { id, date, loadData });
   };
 
   return (
     <View style={styles.expandedContent}>
       <View style={styles.expandedContentIconsRow} lightColor="#FFFCEB" darkColor="#3C3C3C">
-        <TouchableOpacity onPress={() => navigateToScreen('camera')}>
+        <TouchableOpacity onPress={() => handleNavigate('camera')}>
           <View style={styles.iconWithText} lightColor="#FFFCEB" darkColor="#3C3C3C">
             <Feather name="camera" size={24} color="#76A689" style={styles.icon} />
             <Text style={styles.iconDescription}>Fotografar</Text>
           </View>
         </TouchableOpacity>
-        <TouchableOpacity onPress={() => navigateToScreen('description-screen')}>
+        <TouchableOpacity onPress={() => handleNavigate('description-screen')}>
           <View style={styles.iconWithText} lightColor="#FFFCEB" darkColor="#3C3C3C">
             <Feather name="edit" size={24} color="#76A689" style={styles.icon} />
             <Text style={styles.iconDescription}>Descrever</Text>
@@ -117,31 +117,31 @@ const ExpandedActions: React.FC<{
 };
 
 const MealItem: React.FC<{
-  item: ItemMeal;
+  meal: ItemMeal;
   date: Date;
-  toggleExpansion: (id: number) => void;
+  onToggleExpansion: (id: number) => void;
   loadData: () => Promise<void>;
-}> = ({ item, date, toggleExpansion, loadData }) => {
+}> = ({ meal, date, onToggleExpansion, loadData }) => {
   return (
     <View lightColor="#FFFCEB" darkColor="#3C3C3C">
       <View style={styles.listItem} lightColor="#FFFCEB" darkColor="#3C3C3C">
-        <MealIcon iconName={item.iconName} />
+        <MealIcon iconName={meal.iconName} />
         <Text numberOfLines={1} style={styles.itemText}>
-          {item.name}
+          {meal.name}
         </Text>
-        <TouchableOpacity onPress={() => toggleExpansion(item.id)}>
+        <TouchableOpacity onPress={() => onToggleExpansion(meal.id)}>
           <Feather
-            name={item.isExpanded ? 'chevron-down' : 'chevron-right'}
+            name={meal.isExpanded ? 'chevron-down' : 'chevron-right'}
             size={24}
             color="#76A689"
             style={styles.icon}
           />
         </TouchableOpacity>
       </View>
-      {item.isExpanded && (
+      {meal.isExpanded && (
         <>
-          <RenderFoods foods={item.foods} loadData={loadData} />
-          <ExpandedActions id={item.id} date={date} loadData={loadData} />
+          <RenderFoods foods={meal.foods || []} loadData={loadData} />
+          <ExpandedActions id={meal.id} date={date} loadData={loadData} />
         </>
       )}
     </View>
@@ -150,14 +150,14 @@ const MealItem: React.FC<{
 
 const DateSelector: React.FC<{
   date: Date;
-  setDate: (date: Date) => void;
-}> = ({ date, setDate }) => {
+  onDateChange: (date: Date) => void;
+}> = ({ date, onDateChange }) => {
   const [showCalendar, setShowCalendar] = useState(false);
 
-  const onChange = (event: DateTimePickerEvent, selectedDate?: Date) => {
+  const handleDateChange = (event: DateTimePickerEvent, selectedDate?: Date) => {
     const currentDate = selectedDate || date;
     setShowCalendar(Platform.OS === 'ios');
-    setDate(currentDate);
+    onDateChange(currentDate);
   };
 
   return (
@@ -174,7 +174,7 @@ const DateSelector: React.FC<{
           value={date}
           mode={'date'}
           display="default"
-          onChange={onChange}
+          onChange={handleDateChange}
           accentColor="#547260"
           locale="pt-BR"
         />
@@ -186,7 +186,11 @@ const DateSelector: React.FC<{
 
 export default function MealsScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-  const { data, date, setDate, loadData, toggleExpansion } = useMealData(new Date());
+  const { meals, selectedDate, setSelectedDate, loadMeals, toggleMealExpansion } = useMealData(new Date());
+
+  const handleNavigateToModal = () => {
+    navigation.navigate('modal', { loadData: loadMeals });
+  };
 
   return (
     <View style={styles.container} lightColor="#FFFCEB" darkColor="#3C3C3C">
@@ -194,24 +198,24 @@ export default function MealsScreen() {
         <Text style={styles.title}>Minhas refeições</Text>
         <TouchableOpacity
           style={styles.addButton}
-          onPress={() => navigation.navigate('modal')}
+          onPress={handleNavigateToModal}
         >
           <Feather name="plus" size={24} color="#76A689" />
         </TouchableOpacity>
       </View>
       
-      <DateSelector date={date} setDate={setDate} />
+      <DateSelector date={selectedDate} onDateChange={setSelectedDate} />
       
       <View style={styles.listContainer} lightColor="#FFFCEB" darkColor="#3C3C3C">
         <FlatList
-          data={data}
+          data={meals}
           keyExtractor={(item) => item.id.toString()}
           renderItem={({ item }) => (
             <MealItem
-              item={item}
-              date={date}
-              toggleExpansion={toggleExpansion}
-              loadData={loadData}
+              meal={item}
+              date={selectedDate}
+              onToggleExpansion={toggleMealExpansion}
+              loadData={loadMeals}
             />
           )}
         />

@@ -1,34 +1,61 @@
-import { DataSource, Repository } from 'typeorm';
-import { User } from '../entities/user-entity';
+import { BaseRepository } from './BaseRepository';
+import { User } from '../types';
 
-export class UserRepository {
-  private userRepository: Repository<User>;
-
-  constructor(dataSource: DataSource) {
-    this.userRepository = dataSource.getRepository(User);
+export class UserRepository extends BaseRepository<User> {
+  constructor() {
+    super('users');
   }
 
-  async findOne(): Promise<User> {
-    return await this.userRepository.findOneOrFail({ where: { id: 1 } });
+  async findByEmail(email: string): Promise<User | null> {
+    const results = await this.db.executeQuery<User>(
+      'SELECT * FROM users WHERE email = ?',
+      [email]
+    );
+    return results[0] || null;
   }
 
-  async create(user: Partial<User>): Promise<User> {
-    return await this.userRepository.save({ ...user, id: 1 });
+  async create(user: Omit<User, 'id'>): Promise<User> {
+    const id = await this.db.executeInsert(
+      'INSERT INTO users (email, password, name, image) VALUES (?, ?, ?, ?)',
+      [user.email, user.password, user.name, user.image || null]
+    );
+    return { ...user, id };
   }
 
-  async update(user: Partial<User>): Promise<User> {
-    const userToSave = await this.userRepository.findOne({
-      where: { name: user.name },
-    });
-    if (!userToSave) throw new Error('User not found');
-    return this.userRepository.save({ ...userToSave, ...user });
-  }
+  async update(id: number, user: Partial<User>): Promise<void> {
+    const currentUser = await this.findById(id);
+    if (!currentUser) throw new Error('Usuário não encontrado');
 
-  async delete(id: number): Promise<void> {
-    await this.userRepository.delete(id);
+    const updates: string[] = [];
+    const values: any[] = [];
+
+    if (user.email) {
+      updates.push('email = ?');
+      values.push(user.email);
+    }
+    if (user.password) {
+      updates.push('password = ?');
+      values.push(user.password);
+    }
+    if (user.name) {
+      updates.push('name = ?');
+      values.push(user.name);
+    }
+    if (user.image !== undefined) {
+      updates.push('image = ?');
+      values.push(user.image);
+    }
+
+    if (updates.length > 0) {
+      values.push(id);
+      await this.db.executeQuery(
+        `UPDATE users SET ${updates.join(', ')} WHERE id = ?`,
+        values
+      );
+    }
   }
 
   async deleteAll(): Promise<void> {
-    await this.userRepository.clear();
+    await this.db.executeQuery(`DELETE FROM ${this.tableName}`);
   }
 }
