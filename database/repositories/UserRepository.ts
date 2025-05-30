@@ -7,19 +7,18 @@ export class UserRepository extends BaseRepository<User> {
   }
 
   async findByEmail(email: string): Promise<User | null> {
-    const results = await this.db.executeQuery<User>(
-      'SELECT * FROM users WHERE email = ?',
-      [email]
-    );
+    const results = await this.db.executeQuery<User>('SELECT * FROM users WHERE email = ?', [
+      email,
+    ]);
     return results[0] || null;
   }
 
-  async create(user: Omit<User, 'id'>): Promise<User> {
+  async create(user: Omit<User, 'id' | 'height' | 'weight' | 'age' | 'gender'>): Promise<User> {
     const id = await this.db.executeInsert(
-      'INSERT INTO users (email, password, name, image) VALUES (?, ?, ?, ?)',
-      [user.email, user.password, user.name, user.image || null]
+      'INSERT INTO users (email, password, name) VALUES (?, ?, ?)',
+      [user.email, user.password, user.name],
     );
-    return { ...user, id };
+    return { ...user, id } as User;
   }
 
   async update(id: number, user: Partial<User>): Promise<void> {
@@ -41,17 +40,10 @@ export class UserRepository extends BaseRepository<User> {
       updates.push('name = ?');
       values.push(user.name);
     }
-    if (user.image !== undefined) {
-      updates.push('image = ?');
-      values.push(user.image);
-    }
 
     if (updates.length > 0) {
       values.push(id);
-      await this.db.executeQuery(
-        `UPDATE users SET ${updates.join(', ')} WHERE id = ?`,
-        values
-      );
+      await this.db.executeQuery(`UPDATE users SET ${updates.join(', ')} WHERE id = ?`, values);
     }
   }
 

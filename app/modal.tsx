@@ -3,37 +3,12 @@ import { StyleSheet } from 'react-native';
 import { Text, TextInput, TouchableOpacity, View } from '@/components/Themed';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { MealService } from '@/database/services/MealService';
+import { THEME } from '@/constants/theme';
 
 // Types
 interface RouteParams {
   loadData: () => Promise<void>;
 }
-
-// Constants
-const THEME = {
-  OVERLAY: {
-    OPACITY: 0.9,
-    BACKGROUND: {
-      LIGHT: '#FFFCEB',
-      DARK: '#3C3C3C',
-    },
-  },
-  COLORS: {
-    PRIMARY: '#547260',
-    SECONDARY: '#76A689',
-    TEXT: {
-      LIGHT: '#FFFCEB',
-      DARK: '#FFFFFF',
-    },
-  },
-  MODAL: {
-    WIDTH: 80,
-    TOP_OFFSET: -10,
-    HEIGHT: 300,
-    BORDER_RADIUS: 30,
-    BORDER_WIDTH: 5,
-  },
-};
 
 // Custom Hooks
 const useCreateMeal = (onMealCreated: () => Promise<void>) => {
@@ -48,7 +23,7 @@ const useCreateMeal = (onMealCreated: () => Promise<void>) => {
       await mealService.createMeal({
         name: mealName,
         iconName: 'sunrise',
-        position: 0
+        position: 0,
       });
       await onMealCreated();
       navigation.goBack();
@@ -73,36 +48,26 @@ const Overlay: React.FC = () => (
   />
 );
 
-const MealNameInput: React.FC<{
-  value: string;
-  onChangeText: (text: string) => void;
-}> = ({ value, onChangeText }) => (
-  <TextInput
-    style={styles.input}
-    value={value}
-    onChangeText={onChangeText}
-    placeholder="Nome da refeição"
-    placeholderTextColor={THEME.COLORS.TEXT.LIGHT}
-  />
-);
-
-const CreateButton: React.FC<{
-  onPress: () => void;
-}> = ({ onPress }) => (
-  <TouchableOpacity style={styles.button} onPress={onPress}>
-    <Text style={styles.buttonText}>Criar</Text>
-  </TouchableOpacity>
-);
-
 const ModalContent: React.FC<{
   mealName: string;
-  onMealNameChange: (text: string) => void;
-  onSubmit: () => void;
-}> = ({ mealName, onMealNameChange, onSubmit }) => (
-  <View style={styles.modal} lightColor={THEME.OVERLAY.BACKGROUND.LIGHT} darkColor={THEME.OVERLAY.BACKGROUND.DARK}>
+  setMealName: (name: string) => void;
+  handleCreateMeal: () => Promise<void>;
+}> = ({ mealName, setMealName, handleCreateMeal }) => (
+  <View
+    style={styles.modal}
+    lightColor={THEME.COLORS.BACKGROUND.LIGHT}
+    darkColor={THEME.COLORS.BACKGROUND.DARK}>
     <Text style={styles.title}>Nova Refeição</Text>
-    <MealNameInput value={mealName} onChangeText={onMealNameChange} />
-    <CreateButton onPress={onSubmit} />
+    <TextInput
+      style={styles.input}
+      placeholder="Nome da refeição"
+      placeholderTextColor={THEME.COLORS.TEXT.LIGHT}
+      value={mealName}
+      onChangeText={setMealName}
+    />
+    <TouchableOpacity style={styles.button} onPress={handleCreateMeal}>
+      <Text style={styles.buttonText}>Criar</Text>
+    </TouchableOpacity>
   </View>
 );
 
@@ -117,8 +82,8 @@ export default function CreateMealModal() {
       <View style={styles.container}>
         <ModalContent
           mealName={mealName}
-          onMealNameChange={setMealName}
-          onSubmit={handleCreateMeal}
+          setMealName={setMealName}
+          handleCreateMeal={handleCreateMeal}
         />
       </View>
     </>
@@ -126,56 +91,56 @@ export default function CreateMealModal() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  overlay: {
-    width: '100%',
-    height: '100%',
-    position: 'absolute',
-  },
-  modal: {
-    height: THEME.MODAL.HEIGHT,
-    width: `${THEME.MODAL.WIDTH}%`,
-    top: `${THEME.MODAL.TOP_OFFSET}%`,
-    borderColor: '#000',
-    borderWidth: THEME.MODAL.BORDER_WIDTH,
-    borderRadius: THEME.MODAL.BORDER_RADIUS,
-    padding: 20,
-    alignItems: 'center',
-    paddingTop: '20%',
-  },
-  title: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: THEME.COLORS.PRIMARY,
-    paddingBottom: 20,
-  },
-  input: {
-    width: '100%',
-    height: 40,
-    borderWidth: 1,
-    borderColor: THEME.COLORS.PRIMARY,
-    backgroundColor: THEME.COLORS.PRIMARY,
-    borderRadius: 10,
-    paddingHorizontal: 10,
-    color: THEME.COLORS.TEXT.DARK,
-  },
   button: {
-    height: 45,
-    width: 150,
-    borderRadius: 10,
-    marginBottom: 5,
-    marginTop: 45,
-    backgroundColor: THEME.COLORS.SECONDARY,
-    justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: THEME.COLORS.SECONDARY,
+    borderRadius: THEME.BORDER.RADIUS.BUTTON,
+    height: 45,
+    justifyContent: 'center',
+    marginBottom: 5,
+    marginTop: THEME.SPACING.MARGIN.TOP,
+    width: 150,
   },
   buttonText: {
-    color: THEME.COLORS.TEXT.DARK,
-    fontSize: 16,
+    color: THEME.COLORS.TEXT.LIGHT,
+    fontSize: THEME.FONT.SIZE.NORMAL,
     fontWeight: 'bold',
+  },
+  container: {
+    alignItems: 'center',
+    flex: 1,
+    justifyContent: 'center',
+  },
+  input: {
+    backgroundColor: THEME.COLORS.SECONDARY,
+    borderColor: THEME.COLORS.PRIMARY,
+    borderRadius: THEME.INPUT.BORDER_RADIUS,
+    borderWidth: THEME.BORDER.WIDTH,
+    color: THEME.COLORS.TEXT.LIGHT,
+    height: THEME.INPUT.HEIGHT,
+    paddingHorizontal: THEME.SPACING.PADDING.HORIZONTAL,
+    width: '100%',
+  },
+  modal: {
+    alignItems: 'center',
+    borderColor: THEME.COLORS.PRIMARY,
+    borderRadius: THEME.MODAL.BORDER_RADIUS,
+    borderWidth: THEME.MODAL.BORDER_WIDTH,
+    height: THEME.MODAL.HEIGHT,
+    padding: THEME.SPACING.PADDING.VERTICAL,
+    paddingTop: '20%',
+    top: `${THEME.MODAL.TOP_OFFSET}%`,
+    width: `${THEME.MODAL.WIDTH}%`,
+  },
+  overlay: {
+    height: '100%',
+    position: 'absolute',
+    width: '100%',
+  },
+  title: {
+    color: THEME.COLORS.PRIMARY,
+    fontSize: THEME.FONT.SIZE.TITLE,
+    fontWeight: 'bold',
+    paddingBottom: THEME.SPACING.PADDING.VERTICAL,
   },
 });

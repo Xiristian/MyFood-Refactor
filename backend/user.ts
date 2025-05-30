@@ -41,7 +41,7 @@ export const register = async (user: UserDTO): Promise<string> => {
 const test: UserDTO = {
   name: 'Teste',
   email: 'Teste@email.com',
-  password: '',
+  password: '123',
   age: 21,
   goal: 95,
   height: 180,

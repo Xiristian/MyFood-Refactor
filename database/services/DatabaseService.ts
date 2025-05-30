@@ -6,7 +6,7 @@ export class DatabaseService {
   private db: ExtendedSQLiteDatabase;
 
   private constructor() {
-    this.db = SQLite.openDatabaseSync('myfood.db') as ExtendedSQLiteDatabase;
+    this.db = SQLite.openDatabaseSync('myfood.db');
     this.db.execSync('PRAGMA journal_mode = WAL');
     this.db.execSync('PRAGMA foreign_keys = ON');
   }
@@ -67,4 +67,4 @@ export class DatabaseService {
       throw error;
     }
   }
-} 
+}

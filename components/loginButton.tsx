@@ -1,4 +1,3 @@
-// LoginButton.tsx
 import React from 'react';
 import { TouchableOpacity, Text, StyleSheet } from 'react-native';
 
@@ -16,14 +15,14 @@ const LoginButton: React.FC<Props> = ({ onPress }) => {
 
 const styles = StyleSheet.create({
   button: {
-    height: 45,
-    width: 150,
+    alignItems: 'center',
+    backgroundColor: '#76A689',
     borderRadius: 10,
+    height: 45,
+    justifyContent: 'center',
     marginBottom: 5,
     marginTop: 45,
-    backgroundColor: '#76A689',
-    justifyContent: 'center',
-    alignItems: 'center',
+    width: 150,
   },
   buttonText: {
     color: '#ffffff',

@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { StyleSheet, FlatList, ActivityIndicator } from 'react-native';
+import React, { useState } from 'react';
+import { StyleSheet, FlatList, ActivityIndicator, Pressable } from 'react-native';
 import { Text, TouchableOpacity, View } from '@/components/Themed';
 import { Feather } from '@expo/vector-icons';
 import SearchBar from '@/components/SearchBar';
@@ -9,8 +9,8 @@ import { RouteProp, useRoute } from '@react-navigation/native';
 import { FoodDTO, getFoods } from '@/backend/get-foods';
 import { isTest } from '@/backend/test';
 import { MealService } from '@/database/services/MealService';
+import { THEME } from '@/constants/theme';
 
-// Types
 interface RouteParams {
   id: number;
   date: Date;
@@ -23,48 +23,6 @@ interface FoodCardProps {
   onSelectItem: (id: string) => void;
   isSelected: boolean;
 }
-
-// Constants
-const THEME = {
-  COLORS: {
-    PRIMARY: '#547260',
-    SECONDARY: '#76A689',
-    BACKGROUND: {
-      LIGHT: '#FFFCEB',
-      DARK: '#3C3C3C',
-    },
-    BORDER: {
-      SELECTED: '#76A689',
-      TRANSPARENT: 'transparent',
-    },
-    TEXT: '#547260',
-    ICON: '#547260',
-    FAB: '#344e41',
-  },
-  SPACING: {
-    PADDING: {
-      VERTICAL: 10,
-      HORIZONTAL: 15,
-    },
-    MARGIN: {
-      TOP: 10,
-      HORIZONTAL: 10,
-      BOTTOM: 50,
-    },
-  },
-  BORDER: {
-    RADIUS: 10,
-    WIDTH: 2,
-  },
-  FONT: {
-    SIZE: {
-      TITLE: 20,
-      FOOD_NAME: 18,
-      DETAILS: 16,
-      NUMBER: 16,
-    },
-  },
-};
 
 // Custom Hooks
 const useSearchFood = () => {
@@ -92,7 +50,7 @@ const useSearchFood = () => {
       if (currentPage === 0 || isTest) {
         setSearchResults(result);
       } else {
-        setSearchResults(prevResults => [...prevResults, ...result]);
+        setSearchResults((prevResults) => [...prevResults, ...result]);
       }
     } catch (error) {
       console.error('Erro ao buscar alimentos:', error);
@@ -102,7 +60,7 @@ const useSearchFood = () => {
   };
 
   const loadMoreResults = () => {
-    setSearchPage(prevPage => prevPage + 1);
+    setSearchPage((prevPage) => prevPage + 1);
   };
 
   return {
@@ -117,8 +75,8 @@ const useSelectedItems = () => {
   const [selectedItems, setSelectedItems] = useState<string[]>([]);
 
   const toggleItemSelection = (id: string) => {
-    setSelectedItems(prevItems =>
-      prevItems.includes(id) ? prevItems.filter(item => item !== id) : [...prevItems, id],
+    setSelectedItems((prevItems) =>
+      prevItems.includes(id) ? prevItems.filter((item) => item !== id) : [...prevItems, id],
     );
   };
 
@@ -134,14 +92,17 @@ const useMealService = (mealId: number, date: Date, onSuccess: () => Promise<voi
   const addFoodsToMeal = async (selectedFoods: FoodDTO[]) => {
     try {
       await Promise.all(
-        selectedFoods.map(food =>
+        selectedFoods.map((food) =>
           mealService.addFoodToMeal(mealId, {
             name: food.food_name,
             calories: food.calories,
             mealId: mealId,
-            date: date
-          })
-        )
+            date: date,
+            protein: food.protein,
+            carbs: food.carbs,
+            fat: food.fat,
+          }),
+        ),
       );
       await onSuccess();
       router.back();
@@ -187,30 +148,25 @@ const FoodCard: React.FC<FoodCardProps> = ({ item, index, onSelectItem, isSelect
   return (
     <>
       <View style={styles.separator} darkColor="#333333" lightColor="#E3E3E3" />
-      <TouchableOpacity
+      <Pressable
         style={[styles.foodItem, isSelected && styles.selectedItem]}
         onPress={() => onSelectItem(item.food_id)}>
         <View style={styles.numberContainer}>
           <Text style={styles.numberText}>{index + 1}</Text>
         </View>
         <FoodInfo item={item} />
-        <ActionButtons
-          onSelect={() => onSelectItem(item.food_id)}
-          onEdit={handleEdit}
-        />
-      </TouchableOpacity>
+        <ActionButtons onSelect={() => onSelectItem(item.food_id)} onEdit={handleEdit} />
+      </Pressable>
     </>
   );
 };
 
+const PlusIcon = () => <Feather name="plus" size={24} color="white" />;
+
 const AddButton: React.FC<{ onPress: () => void }> = ({ onPress }) => (
   <View style={styles.bottomButtons}>
     <View style={styles.buttonContainer}>
-      <FAB
-        style={styles.fab}
-        icon={() => <Feather name="plus" size={24} color="white" />}
-        onPress={onPress}
-      />
+      <FAB style={styles.fab} icon={PlusIcon} onPress={onPress} />
     </View>
   </View>
 );
@@ -229,19 +185,20 @@ export default function DescriptionScreen() {
   const handleAddSelectedFoods = async () => {
     if (selectedItems.length === 0) return;
 
-    const selectedFoods = searchResults.filter(food =>
-      selectedItems.includes(food.food_id)
-    );
+    const selectedFoods = searchResults.filter((food) => selectedItems.includes(food.food_id));
 
     await addFoodsToMeal(selectedFoods);
   };
 
   return (
-    <View style={styles.container} darkColor={THEME.COLORS.BACKGROUND.DARK} lightColor={THEME.COLORS.BACKGROUND.LIGHT}>
+    <View
+      style={styles.container}
+      darkColor={THEME.COLORS.BACKGROUND.DARK}
+      lightColor={THEME.COLORS.BACKGROUND.LIGHT}>
       <Text style={styles.title}>Adicionar Alimentos</Text>
-      
+
       <SearchBar placeholder="Digite um alimento" onChangeText={handleSearch} />
-      
+
       <FlatList
         data={searchResults}
         keyExtractor={(item) => item.food_id}
@@ -256,90 +213,90 @@ export default function DescriptionScreen() {
           />
         )}
       />
-      
+
       <AddButton onPress={handleAddSelectedFoods} />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  title: {
-    fontSize: THEME.FONT.SIZE.TITLE,
-    fontWeight: 'bold',
-    marginBottom: THEME.SPACING.MARGIN.TOP,
-    marginTop: 20,
-    textAlign: 'center',
-    color: THEME.COLORS.TEXT,
-  },
-  separator: {
-    height: 1,
-    width: '80%',
-    alignSelf: 'center',
-    opacity: 0.8,
-  },
-  foodItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: THEME.SPACING.PADDING.VERTICAL,
-    paddingHorizontal: THEME.SPACING.PADDING.HORIZONTAL,
-    marginTop: THEME.SPACING.MARGIN.TOP,
-    marginHorizontal: THEME.SPACING.MARGIN.HORIZONTAL,
-    borderRadius: THEME.BORDER.RADIUS,
-    borderWidth: THEME.BORDER.WIDTH,
-    borderColor: THEME.COLORS.BORDER.TRANSPARENT,
-  },
-  selectedItem: {
-    borderColor: THEME.COLORS.BORDER.SELECTED,
-  },
-  numberContainer: {
-    alignItems: 'center',
-    marginRight: THEME.SPACING.MARGIN.HORIZONTAL,
-  },
-  numberText: {
-    color: THEME.COLORS.TEXT,
-    fontSize: THEME.FONT.SIZE.NUMBER,
-    fontWeight: 'bold',
-  },
-  foodInfo: {
-    flex: 1,
-  },
-  foodName: {
-    color: THEME.COLORS.TEXT,
-    fontSize: THEME.FONT.SIZE.FOOD_NAME,
-    fontWeight: 'bold',
-  },
-  foodDetails: {
-    color: THEME.COLORS.TEXT,
-    marginTop: 5,
-  },
-  iconsContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  icon: {
-    marginRight: THEME.SPACING.MARGIN.HORIZONTAL,
-    opacity: 0.8,
-  },
   bottomButtons: {
-    justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: THEME.SPACING.PADDING.HORIZONTAL,
+    justifyContent: 'center',
     marginBottom: THEME.SPACING.MARGIN.BOTTOM,
+    paddingHorizontal: THEME.SPACING.PADDING.HORIZONTAL,
   },
   buttonContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     width: '100%',
   },
+  container: {
+    flex: 1,
+  },
   fab: {
     backgroundColor: THEME.COLORS.FAB,
-    position: 'absolute',
-    margin: 16,
-    right: 0,
     bottom: 0,
+    margin: 16,
+    position: 'absolute',
+    right: 0,
+  },
+  foodDetails: {
+    color: THEME.COLORS.PRIMARY,
+    marginTop: THEME.SPACING.MARGIN.VERTICAL,
+  },
+  foodInfo: {
+    flex: 1,
+  },
+  foodItem: {
+    alignItems: 'center',
+    borderColor: THEME.COLORS.BORDER.TRANSPARENT,
+    borderRadius: THEME.INPUT.BORDER_RADIUS,
+    borderWidth: THEME.BORDER.WIDTH,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginHorizontal: THEME.SPACING.MARGIN.HORIZONTAL,
+    marginTop: THEME.SPACING.MARGIN.TOP,
+    paddingHorizontal: THEME.SPACING.PADDING.HORIZONTAL,
+    paddingVertical: THEME.SPACING.PADDING.VERTICAL,
+  },
+  foodName: {
+    color: THEME.COLORS.PRIMARY,
+    fontSize: THEME.FONT.SIZE.FOOD_NAME,
+    fontWeight: 'bold',
+  },
+  icon: {
+    marginRight: THEME.SPACING.MARGIN.HORIZONTAL,
+    opacity: 0.8,
+  },
+  iconsContainer: {
+    alignItems: 'center',
+    flexDirection: 'row',
+  },
+  numberContainer: {
+    alignItems: 'center',
+    marginRight: THEME.SPACING.MARGIN.HORIZONTAL,
+  },
+  numberText: {
+    color: THEME.COLORS.TEXT.DARK,
+    fontSize: THEME.FONT.SIZE.NUMBER,
+    fontWeight: 'bold',
+  },
+  selectedItem: {
+    borderColor: THEME.COLORS.BORDER.SELECTED,
+  },
+  separator: {
+    alignSelf: 'center',
+    height: 1,
+    opacity: 0.8,
+    width: '80%',
+  },
+  title: {
+    color: THEME.COLORS.TEXT.DARK,
+    fontSize: THEME.FONT.SIZE.TITLE,
+    fontWeight: 'bold',
+    marginBottom: THEME.SPACING.MARGIN.TOP,
+    marginTop: 20,
+    textAlign: 'center',
   },
 });

@@ -1,23 +1,13 @@
 import { StyleSheet } from 'react-native';
 import { Text, View } from '@/components/Themed';
-
-// Constants
-const THEME = {
-  COLORS: {
-    BACKGROUND: {
-      LIGHT: '#FFFCEB',
-      DARK: '#3C3C3C',
-    },
-  },
-};
+import { THEME } from '@/constants/theme';
 
 export default function GraphicsScreen() {
   return (
-    <View 
-      style={styles.container} 
-      lightColor={THEME.COLORS.BACKGROUND.LIGHT} 
-      darkColor={THEME.COLORS.BACKGROUND.DARK}
-    >
+    <View
+      style={styles.container}
+      lightColor={THEME.COLORS.BACKGROUND.LIGHT}
+      darkColor={THEME.COLORS.BACKGROUND.DARK}>
       <Text>Em desenvolvimento...</Text>
     </View>
   );
@@ -25,8 +15,8 @@ export default function GraphicsScreen() {
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
     alignItems: 'center',
+    flex: 1,
     justifyContent: 'center',
   },
 });

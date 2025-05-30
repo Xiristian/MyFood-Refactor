@@ -6,130 +6,21 @@ import * as ImagePicker from 'expo-image-picker';
 import { useNavigation } from 'expo-router';
 import { AuthService } from '@/database/services/AuthService';
 import { User } from '@/database/types';
+import { THEME } from '@/constants/theme';
 
-// Constants
-const THEME = {
-  COLORS: {
-    PRIMARY: '#547260',
-    SECONDARY: '#76A689',
-    BACKGROUND: {
-      LIGHT: '#FFFCEB',
-      DARK: '#3C3C3C',
-    },
-    ICON: '#435B4D',
-  },
-  SPACING: {
-    MARGIN: {
-      TOP: 20,
-      LEFT: 10,
-    },
-    PADDING: {
-      HORIZONTAL: 20,
-    },
-  },
-  ICON: {
-    SIZE: {
-      CAMERA: 40,
-      CHEVRON: 24,
-      ACCOUNT: 24,
-    },
-  },
-  IMAGE: {
-    SIZE: {
-      CONTAINER: 200,
-      PREVIEW: 150,
-    },
-    BORDER: {
-      RADIUS: {
-        CONTAINER: 100,
-        PREVIEW: 50,
-      },
-      WIDTH: 2,
-    },
-  },
-  FONT: {
-    SIZE: {
-      NAME: 24,
-      MENU: 20,
-    },
-  },
-};
-
-// Custom Hooks
-const useUserProfile = () => {
-  const [user, setUser] = useState<User | null>(null);
-  const [profileImage, setProfileImage] = useState<string | null>(null);
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const authService = AuthService.getInstance();
-
-  useEffect(() => {
-    const loadUser = async () => {
-      const currentUser = await authService.getCurrentUser();
-      if (currentUser) {
-        setUser(currentUser);
-        setProfileImage(currentUser.image || null);
-      }
-    };
-    loadUser();
-  }, []);
-
-  const toggleMenu = () => setIsMenuOpen(!isMenuOpen);
-
-  const updateProfileImage = async (imageUri: string) => {
-    if (user?.id) {
-      await authService.updateUser(user.id, { image: imageUri });
-      setProfileImage(imageUri);
-    }
-  };
-
-  return {
-    user,
-    profileImage,
-    isMenuOpen,
-    toggleMenu,
-    updateProfileImage,
-  };
-};
-
-const useImagePicker = (onImageSelected: (uri: string) => Promise<void>) => {
-  const pickImage = async () => {
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.All,
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 1,
-    });
-    
-    if (!result.canceled && result.assets && result.assets.length > 0) {
-      await onImageSelected(result.assets[0].uri);
-    }
-  };
-
-  return {
-    pickImage,
-  };
-};
-
-// Components
-const ProfileImage: React.FC<{
-  imageUri: string | null;
-  onPress: () => void;
-}> = ({ imageUri, onPress }) => (
-  <Pressable style={styles.imageContainer} onPress={onPress}>
-    {imageUri ? (
-      <Image source={{ uri: imageUri }} style={styles.image} />
-    ) : (
-      <FontAwesome name="camera" size={THEME.ICON.SIZE.CAMERA} color={THEME.COLORS.PRIMARY} />
-    )}
-  </Pressable>
-);
+interface UserMenuProps {
+  onLogout: () => void;
+}
 
 const UserInfo: React.FC<{
   name: string;
   isMenuOpen: boolean;
   onToggleMenu: () => void;
 }> = ({ name, isMenuOpen, onToggleMenu }) => (
-  <View style={styles.userInfo} lightColor={THEME.COLORS.BACKGROUND.LIGHT} darkColor={THEME.COLORS.BACKGROUND.DARK}>
+  <View
+    style={styles.userInfo}
+    lightColor={THEME.COLORS.BACKGROUND.LIGHT}
+    darkColor={THEME.COLORS.BACKGROUND.DARK}>
     <Text style={styles.userName}>{name}</Text>
     <Pressable onPress={onToggleMenu}>
       <FontAwesome
@@ -141,81 +32,142 @@ const UserInfo: React.FC<{
   </View>
 );
 
-const UserMenu: React.FC = () => (
-  <View style={styles.dropdown} lightColor={THEME.COLORS.BACKGROUND.LIGHT} darkColor={THEME.COLORS.BACKGROUND.DARK}>
-    <View style={styles.dropdownItem} lightColor={THEME.COLORS.BACKGROUND.LIGHT} darkColor={THEME.COLORS.BACKGROUND.DARK}>
-      <MaterialCommunityIcons name="account" size={THEME.ICON.SIZE.ACCOUNT} color={THEME.COLORS.ICON} />
+const UserMenu: React.FC<UserMenuProps> = ({ onLogout }) => (
+  <View
+    style={styles.dropdown}
+    lightColor={THEME.COLORS.BACKGROUND.LIGHT}
+    darkColor={THEME.COLORS.BACKGROUND.DARK}>
+    <View
+      style={styles.dropdownItem}
+      lightColor={THEME.COLORS.BACKGROUND.LIGHT}
+      darkColor={THEME.COLORS.BACKGROUND.DARK}>
+      <MaterialCommunityIcons
+        name="account"
+        size={THEME.ICON.SIZE.ACCOUNT}
+        color={THEME.COLORS.ICON}
+      />
       <Text style={styles.dropdownItemText}>Editar cadastro</Text>
     </View>
+    <Pressable style={styles.dropdownItem} onPress={onLogout}>
+      <MaterialCommunityIcons
+        name="logout"
+        size={THEME.ICON.SIZE.ACCOUNT}
+        color={THEME.COLORS.ICON}
+      />
+      <Text style={styles.dropdownItemText}>Sair</Text>
+    </Pressable>
   </View>
 );
 
-export default function UserProfileScreen() {
-  const {
-    user,
-    profileImage,
-    isMenuOpen,
-    toggleMenu,
-    updateProfileImage,
-  } = useUserProfile();
+export default function UserScreen() {
+  const [user, setUser] = useState<User | null>(null);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const navigation = useNavigation();
+  const authService = AuthService.getInstance();
 
-  const { pickImage } = useImagePicker(updateProfileImage);
+  useEffect(() => {
+    const loadUser = async () => {
+      const currentUser = await authService.getCurrentUser();
+      setUser(currentUser);
+    };
+    loadUser();
+  });
+
+  const handleImagePick = async () => {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 1,
+    });
+
+    if (!result.canceled && user) {
+      const image = result.assets[0].uri;
+      try {
+        await authService.updateUser(user.id, { image });
+        setUser((prevUser) => (prevUser ? { ...prevUser, image } : null));
+      } catch (error) {
+        console.error('Erro ao atualizar imagem:', error);
+      }
+    }
+  };
+
+  const handleLogout = async () => {
+    await authService.logout();
+    navigation.navigate('login' as never);
+  };
 
   if (!user) return null;
 
   return (
-    <View style={styles.container} lightColor={THEME.COLORS.BACKGROUND.LIGHT} darkColor={THEME.COLORS.BACKGROUND.DARK}>
-      <ProfileImage imageUri={profileImage} onPress={pickImage} />
-      <UserInfo name={user.name} isMenuOpen={isMenuOpen} onToggleMenu={toggleMenu} />
-      {isMenuOpen && <UserMenu />}
+    <View style={styles.container}>
+      <Pressable style={styles.imageContainer} onPress={handleImagePick}>
+        {user.image ? (
+          <Image source={{ uri: user.image }} style={styles.image} />
+        ) : (
+          <MaterialCommunityIcons
+            name="camera"
+            size={THEME.ICON.SIZE.CAMERA}
+            color={THEME.COLORS.ICON}
+          />
+        )}
+      </Pressable>
+      <UserInfo
+        name={user.name}
+        isMenuOpen={isMenuOpen}
+        onToggleMenu={() => setIsMenuOpen(!isMenuOpen)}
+      />
+      {isMenuOpen && <UserMenu onLogout={handleLogout} />}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    width: '100%',
-    height: 'auto',
     flex: 1,
-  },
-  imageContainer: {
-    marginTop: THEME.SPACING.MARGIN.TOP,
-    alignSelf: 'center',
-    width: THEME.IMAGE.SIZE.CONTAINER,
-    height: THEME.IMAGE.SIZE.CONTAINER,
-    borderRadius: THEME.IMAGE.SIZE.CONTAINER / 2,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: THEME.IMAGE.BORDER.WIDTH,
-    borderColor: THEME.COLORS.PRIMARY,
-  },
-  image: {
-    width: THEME.IMAGE.SIZE.PREVIEW,
-    height: THEME.IMAGE.SIZE.PREVIEW,
-    borderRadius: THEME.IMAGE.BORDER.RADIUS.PREVIEW,
-  },
-  userInfo: {
-    marginTop: THEME.SPACING.MARGIN.TOP,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingHorizontal: THEME.SPACING.PADDING.HORIZONTAL,
-    alignItems: 'center',
-  },
-  userName: {
-    fontSize: THEME.FONT.SIZE.NAME,
-    fontWeight: 'bold',
+    height: 'auto',
+    width: '100%',
   },
   dropdown: {
     marginTop: THEME.SPACING.MARGIN.TOP,
     paddingHorizontal: THEME.SPACING.PADDING.HORIZONTAL,
   },
   dropdownItem: {
-    flexDirection: 'row',
     alignItems: 'center',
+    flexDirection: 'row',
     marginBottom: THEME.SPACING.MARGIN.TOP,
   },
   dropdownItemText: {
-    marginLeft: THEME.SPACING.MARGIN.LEFT,
+    color: THEME.COLORS.PRIMARY,
     fontSize: THEME.FONT.SIZE.MENU,
+    marginLeft: THEME.SPACING.MARGIN.LEFT,
+  },
+  image: {
+    borderRadius: THEME.BORDER.RADIUS.PREVIEW,
+    height: THEME.IMAGE.SIZE.PREVIEW,
+    width: THEME.IMAGE.SIZE.PREVIEW,
+  },
+  imageContainer: {
+    alignItems: 'center',
+    alignSelf: 'center',
+    borderColor: THEME.COLORS.PRIMARY,
+    borderRadius: THEME.BORDER.RADIUS.CONTAINER,
+    borderWidth: THEME.BORDER.WIDTH,
+    height: THEME.IMAGE.SIZE.CONTAINER,
+    justifyContent: 'center',
+    marginTop: THEME.SPACING.MARGIN.TOP,
+    width: THEME.IMAGE.SIZE.CONTAINER,
+  },
+  userInfo: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: THEME.SPACING.MARGIN.TOP,
+    paddingHorizontal: THEME.SPACING.PADDING.HORIZONTAL,
+  },
+  userName: {
+    color: THEME.COLORS.PRIMARY,
+    fontSize: THEME.FONT.SIZE.NAME,
+    fontWeight: 'bold',
   },
 });

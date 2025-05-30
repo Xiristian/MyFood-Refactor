@@ -3,6 +3,7 @@ import { StyleProp, StyleSheet, ImageStyle, Image } from 'react-native';
 import LogoImg from '../assets/images/icon.png';
 import { View } from './Themed';
 import { ViewStyle } from 'react-native';
+import { THEME } from '@/constants/theme';
 
 const Logo = ({
   style,
@@ -12,7 +13,10 @@ const Logo = ({
   imageStyle?: StyleProp<ImageStyle>;
 }) => {
   return (
-    <View style={[styles.container, style]} lightColor="#FFFCEB" darkColor="#3C3C3C">
+    <View
+      style={[styles.container, style]}
+      lightColor={THEME.COLORS.BACKGROUND.LIGHT}
+      darkColor={THEME.COLORS.BACKGROUND.DARK}>
       <Image source={LogoImg} style={[styles.logo, imageStyle]} />
     </View>
   );
@@ -20,14 +24,14 @@ const Logo = ({
 
 const styles = StyleSheet.create({
   container: {
-    width: '50%',
-    height: '20%',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: THEME.SPACING.PADDING.VERTICAL,
   },
   logo: {
-    width: '100%',
-    height: '100%',
-    bottom: 50,
+    height: THEME.IMAGE.SIZE.CONTAINER,
     resizeMode: 'contain',
+    width: THEME.IMAGE.SIZE.CONTAINER,
   },
 });
 

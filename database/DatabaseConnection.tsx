@@ -1,84 +1,60 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { Text, View } from '@/components/Themed';
+import { View, Text, StyleSheet } from 'react-native';
 import { DatabaseService } from './services/DatabaseService';
+import { THEME } from '@/constants/theme';
 
-interface DatabaseConnectionContextData {
-  db: DatabaseService;
+interface DatabaseContextType {
+  isInitialized: boolean;
 }
 
-const DatabaseConnectionContext = createContext<DatabaseConnectionContextData>(
-  {} as DatabaseConnectionContextData
-);
+const DatabaseContext = createContext<DatabaseContextType>({ isInitialized: false });
 
-export const DatabaseConnectionProvider: React.FC<{
-  children: React.ReactNode;
-}> = ({ children }) => {
-  const [isError, setIsError] = useState<boolean>(false);
-  const [isInitialized, setIsInitialized] = useState<boolean>(false);
+export function DatabaseConnectionProvider({ children }: { children: React.ReactNode }) {
+  const [isInitialized, setIsInitialized] = useState(false);
+  const [error, setError] = useState<Error | null>(null);
 
   useEffect(() => {
-    const initializeDatabase = async () => {
+    const initDatabase = async () => {
       try {
-        const db = DatabaseService.getInstance();
-        await db.initializeDatabase();
+        const databaseService = DatabaseService.getInstance();
+        await databaseService.initializeDatabase();
         setIsInitialized(true);
-      } catch (error) {
-        console.error('Erro na inicialização do banco:', error);
-        setIsError(true);
+      } catch (err) {
+        setError(err instanceof Error ? err : new Error('Erro ao inicializar banco de dados'));
       }
     };
 
-    initializeDatabase();
+    initDatabase();
   }, []);
 
-  if (isError) {
+  if (error) {
     return (
-      <View
-        style={{
-          backgroundColor: '#7a3687',
-          justifyContent: 'center',
-          alignItems: 'center',
-          flex: 1,
-        }}>
-        <Text lightColor="#eee" darkColor="rgba(255,255,255,0.1)">
-          Erro ao conectar ao banco de dados. Tente novamente.
-        </Text>
+      <View style={styles.container}>
+        <Text>Erro ao conectar ao banco de dados: {error.message}</Text>
       </View>
     );
   }
 
   if (!isInitialized) {
     return (
-      <View
-        style={{
-          backgroundColor: '#7a3687',
-          justifyContent: 'center',
-          alignItems: 'center',
-          flex: 1,
-        }}>
-        <Text lightColor="#eee" darkColor="rgba(255,255,255,0.1)">
-          Carregando...
-        </Text>
+      <View style={styles.container}>
+        <Text>Inicializando banco de dados...</Text>
       </View>
     );
   }
 
-  return (
-    <DatabaseConnectionContext.Provider
-      value={{
-        db: DatabaseService.getInstance(),
-      }}>
-      {children}
-    </DatabaseConnectionContext.Provider>
-  );
-};
+  return <DatabaseContext.Provider value={{ isInitialized }}>{children}</DatabaseContext.Provider>;
+}
 
 export function useDatabaseConnection() {
-  const context = useContext(DatabaseConnectionContext);
-
-  if (!context) {
-    throw new Error('useDatabaseConnection must be used within a DatabaseConnectionProvider');
-  }
-
-  return context;
+  return useContext(DatabaseContext);
 }
+
+const styles = StyleSheet.create({
+  container: {
+    alignItems: 'center',
+    backgroundColor: THEME.COLORS.PRIMARY,
+    flex: 1,
+    justifyContent: 'center',
+  },
+});

@@ -159,10 +159,10 @@ const RegisterPage: React.FC<RegisterPageProps> = ({ onLogin }) => {
         name: formData.name,
         email: formData.email,
         password: formData.password,
-        age: parseInt(formData.age),
-        height: parseInt(formData.height),
-        weight: parseInt(formData.weight),
-        goal: parseInt(formData.goal),
+        age: parseInt(formData.age, 10),
+        height: parseInt(formData.height, 10),
+        weight: parseInt(formData.weight, 10),
+        goal: parseInt(formData.goal, 10),
       };
 
       const response = await register(userData);
@@ -172,9 +172,9 @@ const RegisterPage: React.FC<RegisterPageProps> = ({ onLogin }) => {
           name: formData.name,
           email: formData.email,
           password: formData.password,
-          image: formData.image || undefined
+          image: formData.image || undefined,
         });
-        
+
         Alert.alert('Sucesso', 'Usuário cadastrado com sucesso!');
         navigation.goBack();
         onLogin();
@@ -204,7 +204,7 @@ const RegisterPage: React.FC<RegisterPageProps> = ({ onLogin }) => {
             onChangeText={(text) => updateFormField('name', text)}
           />
 
-          <View style={[styles.row]} lightColor="#FFFCEB" darkColor="#3C3C3C">
+          <View style={styles.row} lightColor="#FFFCEB" darkColor="#3C3C3C">
             <View style={styles.halfWidthContainer}>
               <FormInput
                 placeholder="Idade"
@@ -221,7 +221,7 @@ const RegisterPage: React.FC<RegisterPageProps> = ({ onLogin }) => {
             </View>
           </View>
 
-          <View style={[styles.row]} lightColor="#FFFCEB" darkColor="#3C3C3C">
+          <View style={styles.row} lightColor="#FFFCEB" darkColor="#3C3C3C">
             <View style={styles.halfWidthContainer}>
               <FormInput
                 placeholder="Peso (kg)"
@@ -268,72 +268,72 @@ const RegisterPage: React.FC<RegisterPageProps> = ({ onLogin }) => {
 };
 
 const styles = StyleSheet.create({
-  keyboardView: {
-    flex: 1,
-  },
-  scrollView: {
-    flexGrow: 1,
-  },
-  container: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-  },
-  row: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    width: '100%',
-    marginBottom: 10,
-  },
-  inputContainer: {
-    width: '100%',
-    marginBottom: 20,
-  },
-  input: {
-    width: '100%',
-    height: 40,
-    borderWidth: 1,
-    borderColor: '#547260',
-    backgroundColor: '#547260',
-    borderRadius: 10,
-    paddingHorizontal: 10,
-    color: '#FFF',
-  },
-  halfWidthContainer: {
-    width: '48%',
-  },
   button: {
-    height: 45,
-    width: 150,
+    alignItems: 'center',
+    backgroundColor: '#76A689',
     borderRadius: 15,
+    height: 45,
+    justifyContent: 'center',
     marginBottom: 5,
     marginTop: 30,
-    backgroundColor: '#76A689',
-    justifyContent: 'center',
-    alignItems: 'center',
+    width: 150,
   },
   buttonText: {
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: 'bold',
   },
-  imageContainer: {
-    marginTop: 20,
-    alignSelf: 'center',
-    width: 100,
-    height: 100,
-    borderRadius: 100,
-    marginBottom: 25,
+  container: {
     alignItems: 'center',
+    flex: 1,
     justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: '#76A689',
+    paddingHorizontal: 20,
+  },
+  halfWidthContainer: {
+    width: '48%',
   },
   image: {
-    width: 130,
-    height: 130,
     borderRadius: 50,
+    height: 130,
+    width: 130,
+  },
+  imageContainer: {
+    alignItems: 'center',
+    alignSelf: 'center',
+    borderColor: '#76A689',
+    borderRadius: 100,
+    borderWidth: 2,
+    height: 100,
+    justifyContent: 'center',
+    marginBottom: 25,
+    marginTop: 20,
+    width: 100,
+  },
+  input: {
+    backgroundColor: '#547260',
+    borderColor: '#547260',
+    borderRadius: 10,
+    borderWidth: 1,
+    color: '#FFF',
+    height: 40,
+    paddingHorizontal: 10,
+    width: '100%',
+  },
+  inputContainer: {
+    marginBottom: 20,
+    width: '100%',
+  },
+  keyboardView: {
+    flex: 1,
+  },
+  row: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+    width: '100%',
+  },
+  scrollView: {
+    flexGrow: 1,
   },
 });
 

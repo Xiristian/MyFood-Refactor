@@ -14,17 +14,13 @@ export abstract class BaseRepository<T> {
   }
 
   protected async findById(id: number): Promise<T | null> {
-    const results = await this.db.executeQuery<T>(
-      `SELECT * FROM ${this.tableName} WHERE id = ?`,
-      [id]
-    );
+    const results = await this.db.executeQuery<T>(`SELECT * FROM ${this.tableName} WHERE id = ?`, [
+      id,
+    ]);
     return results[0] || null;
   }
 
   public async delete(id: number): Promise<void> {
-    await this.db.executeQuery(
-      `DELETE FROM ${this.tableName} WHERE id = ?`,
-      [id]
-    );
+    await this.db.executeQuery(`DELETE FROM ${this.tableName} WHERE id = ?`, [id]);
   }
-} 
+}
