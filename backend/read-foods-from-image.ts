@@ -1,10 +1,16 @@
 import axios from 'axios';
 import * as fs from 'expo-file-system';
 import { isTest } from './test';
-import { FoodDTO, FoodsDTO } from './get-foods';
+import { FoodDTO, FoodsDTO, test } from './get-foods';
+
+const getRandomFoods = (foods: FoodDTO[], min: number, max: number): FoodDTO[] => {
+  const quantity = Math.floor(Math.random() * (max - min + 1)) + min;
+  const shuffled = [...foods].sort(() => Math.random() - 0.5);
+  return shuffled.slice(0, quantity);
+};
 
 export const readFoodsFromImage = async (uri: string): Promise<FoodDTO[]> => {
-  if (isTest) return test;
+  if (isTest) return getRandomFoods(test.foods, 2, 5);
   try {
     const image = await fs.readAsStringAsync(uri, {
       encoding: fs.EncodingType.Base64,
@@ -22,5 +28,3 @@ export const readFoodsFromImage = async (uri: string): Promise<FoodDTO[]> => {
     return [];
   }
 };
-
-const test: FoodDTO[] = [];

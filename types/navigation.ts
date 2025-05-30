@@ -3,7 +3,7 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 export type RootStackParamList = {
   '(tabs)': undefined;
   'description-screen': { mealId: number };
-  camera: { onSuccess?: () => void };
+  camera: { id: string; date: string };
   'user-register': undefined;
   login: undefined;
   modal: undefined;

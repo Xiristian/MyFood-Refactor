@@ -103,15 +103,24 @@ export const useAuth = (onLoginSuccess: () => void) => {
     try {
       await authService.register({ email, password, name });
       console.log('Usuário inserido com sucesso');
-      onLoginSuccess();
+      if (onLoginSuccess && typeof onLoginSuccess === 'function') {
+        onLoginSuccess();
+      }
     } catch (error) {
       if (error instanceof Error && error.message === 'Usuário já existe') {
-        const user = await authService.login(email, password);
-        if (user) {
-          console.log('Login realizado com sucesso');
-          onLoginSuccess();
-        } else {
-          throw new Error(ERROR_MESSAGES.LOGIN.INVALID_CREDENTIALS);
+        try {
+          const user = await authService.login(email, password);
+          if (user) {
+            console.log('Login realizado com sucesso');
+            if (onLoginSuccess && typeof onLoginSuccess === 'function') {
+              onLoginSuccess();
+            }
+          } else {
+            throw new Error(ERROR_MESSAGES.LOGIN.INVALID_CREDENTIALS);
+          }
+        } catch (loginError) {
+          console.error('Erro ao fazer login:', loginError);
+          throw new Error(ERROR_MESSAGES.LOGIN.LOGIN_PROCESS);
         }
       } else {
         console.error(ERROR_MESSAGES.LOGIN.LOGIN_PROCESS, error);

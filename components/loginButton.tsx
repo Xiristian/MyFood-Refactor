@@ -16,6 +16,7 @@ const LoginButton: React.FC<Props> = ({ onPress }) => {
 const styles = StyleSheet.create({
   button: {
     alignItems: 'center',
+    alignSelf: 'center',
     backgroundColor: '#76A689',
     borderRadius: 10,
     height: 45,

@@ -13,7 +13,7 @@ import { Text, View, TextInput } from '@/components/Themed';
 import * as ImagePicker from 'expo-image-picker';
 import { FontAwesome } from '@expo/vector-icons';
 import { register, UserDTO } from '@/backend/user';
-import { useNavigation } from 'expo-router';
+import { useNavigation, useRouter } from 'expo-router';
 import { AuthService } from '@/database/services/AuthService';
 
 // Types
@@ -148,6 +148,7 @@ const FormInput: React.FC<{
 
 const RegisterPage: React.FC<RegisterPageProps> = ({ onLogin }) => {
   const navigation = useNavigation();
+  const router = useRouter();
   const authService = AuthService.getInstance();
   const { formData, updateFormField, validateForm } = useRegisterForm();
 
@@ -176,8 +177,7 @@ const RegisterPage: React.FC<RegisterPageProps> = ({ onLogin }) => {
         });
 
         Alert.alert('Sucesso', 'Usuário cadastrado com sucesso!');
-        navigation.goBack();
-        onLogin();
+        router.replace('(tabs)');
       } else {
         Alert.alert('Erro', response);
       }

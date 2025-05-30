@@ -52,6 +52,11 @@ export class MealService {
 
   public async deleteMeal(id: number): Promise<void> {
     try {
+      const foods = await this.foodRepository.findFoodsByMealId(id);
+      for (const food of foods) {
+        await this.foodRepository.delete(food.id);
+      }
+      
       await this.mealRepository.delete(id);
     } catch (error) {
       console.error('Erro ao deletar refeição:', error);

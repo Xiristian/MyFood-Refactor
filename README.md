@@ -62,3 +62,58 @@ O MyFood é um aplicativo de gerenciamento de refeições que permite aos usuár
 
 - Adicionar validações com bibliotecas como Yup ou regras manuais.
 - Incluir tratamento com `try-catch` em chamadas assíncronas e operacionais sensíveis.
+
+## Interface Fluente (Fluent Interface)
+
+A implementação da Interface Fluente no MyFood foi realizada seguindo o padrão de projeto que permite encadear múltiplas chamadas de métodos de forma expressiva e legível. Esta abordagem foi aplicada principalmente nas seguintes áreas:
+
+### Criação de Refeições
+```typescript
+const meal = new MealBuilder()
+    .withName('Almoço')
+    .withIcon('sunrise')
+    .withPosition(1)
+    .build();
+```
+
+### Configuração de Usuário
+```typescript
+const user = new UserBuilder()
+    .withName("João Silva")
+    .withEmail("joao@email.com")
+    .withPassword('123456')
+    .build();
+```
+
+A Interface Fluente proporciona:
+- Código mais legível e autoexplicativo
+- Construção de objetos de forma incremental
+- Validações em cada etapa da construção
+- Redução de erros de configuração
+
+## Instalação e Execução
+
+### Pré-requisitos
+- Node.js (versão 14 ou superior)
+- npm
+- Expo CLI
+
+### Passos para Instalação
+
+1. Clone o repositório:
+```bash
+git clone https://github.com/Xiristian/MyFood-Refactor.git
+cd MyFood-Refactor
+```
+
+2. Instale as dependências:
+```bash
+npm install
+```
+
+3. Inicie o servidor de desenvolvimento:
+```bash
+npm start
+```
+
+4. Use o aplicativo Expo Go no seu dispositivo móvel para escanear o QR Code exibido no terminal, ou execute em um emulador.

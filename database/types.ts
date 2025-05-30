@@ -11,6 +11,7 @@ export interface User {
   weight: number;
   age: number;
   gender: 'M' | 'F';
+  image?: string;
 }
 
 export interface Food {
