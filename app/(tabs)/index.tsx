@@ -9,6 +9,7 @@ import { useMeal } from '@/hooks/useMeal';
 import { RootStackParamList } from '@/types/navigation';
 import { DateSelector } from '@/components/DateSelector';
 import { MealItem } from '@/components/MealItem';
+import { EventEmitter } from '@/utils/EventEmitter';
 
 export default function MealsScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
@@ -16,8 +17,15 @@ export default function MealsScreen() {
     new Date(),
   );
 
+  React.useEffect(() => {
+    const subscription = EventEmitter.addListener('mealCreated', loadMeals);
+    return () => {
+      subscription.remove();
+    };
+  }, [loadMeals]);
+
   const handleNavigateToModal = () => {
-    navigation.navigate('modal', { loadData: loadMeals });
+    navigation.navigate('modal');
   };
 
   return (

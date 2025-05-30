@@ -1,7 +1,7 @@
 import { StyleSheet } from 'react-native';
 import LoginButton from '../components/loginButton';
 import Logo from '../components/Logo';
-import { useNavigation } from 'expo-router';
+import { useNavigation, useRouter } from 'expo-router';
 import { NativeStackNavigationProp } from 'react-native-screens/lib/typescript/native-stack/types';
 import { Text, TextInput, TouchableOpacity, View } from '@/components/Themed';
 import { THEME } from '@/constants/theme';
@@ -10,6 +10,7 @@ import { useAuth } from '@/hooks/useAuth';
 
 type RootStackParamList = {
   'user-register': LoginProps;
+  '(tabs)': undefined;
 };
 
 const FormInput: React.FC<{
@@ -83,6 +84,20 @@ const LoginPage: React.FC<LoginProps> = ({ onLogin }) => {
   );
 };
 
+export default function LoginScreen() {
+  const router = useRouter();
+  
+  const handleLogin = () => {
+    try {
+      router.replace('(tabs)');
+    } catch (error) {
+      console.error('Erro ao navegar:', error);
+    }
+  };
+
+  return <LoginPage onLogin={handleLogin} />;
+}
+
 const styles = StyleSheet.create({
   container: {
     alignItems: 'center',
@@ -113,5 +128,3 @@ const styles = StyleSheet.create({
     textDecorationLine: 'underline',
   },
 });
-
-export default LoginPage;

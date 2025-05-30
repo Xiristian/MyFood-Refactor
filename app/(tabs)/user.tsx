@@ -3,7 +3,7 @@ import { Text, View } from '@/components/Themed';
 import { FontAwesome, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useEffect, useState } from 'react';
 import * as ImagePicker from 'expo-image-picker';
-import { useNavigation } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { AuthService } from '@/database/services/AuthService';
 import { User } from '@/database/types';
 import { THEME } from '@/constants/theme';
@@ -62,7 +62,7 @@ const UserMenu: React.FC<UserMenuProps> = ({ onLogout }) => (
 export default function UserScreen() {
   const [user, setUser] = useState<User | null>(null);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const navigation = useNavigation();
+  const router = useRouter();
   const authService = AuthService.getInstance();
 
   useEffect(() => {
@@ -93,8 +93,12 @@ export default function UserScreen() {
   };
 
   const handleLogout = async () => {
-    await authService.logout();
-    navigation.navigate('login' as never);
+    try {
+      await authService.logout();
+      router.replace('login');
+    } catch (error) {
+      console.error('Erro ao fazer logout:', error);
+    }
   };
 
   if (!user) return null;
@@ -127,6 +131,7 @@ const styles = StyleSheet.create({
     flex: 1,
     height: 'auto',
     width: '100%',
+    backgroundColor: THEME.COLORS.BACKGROUND.DARK,
   },
   dropdown: {
     marginTop: THEME.SPACING.MARGIN.TOP,

@@ -45,7 +45,7 @@ export const getFoods = async (search: string, page: number = 0): Promise<FoodDT
   }
 };
 
-const test: FoodsDTO = {
+export const test: FoodsDTO = {
   foods: [
     {
       food_description:

@@ -1,8 +1,7 @@
-import React, { useState } from 'react';
+import React from 'react';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { Entypo, MaterialCommunityIcons } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
-import LoginPage from '../login';
 import { Pressable, View, StyleSheet, PressableProps, GestureResponderEvent } from 'react-native';
 import { THEME } from '@/constants/theme';
 import { TAB_CONFIG } from '@/constants/navigation';
@@ -136,20 +135,11 @@ const TabNavigator: React.FC<{
 );
 
 export default function TabLayout() {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [selectedTab, setSelectedTab] = useState<string>(TAB_CONFIG.MEALS.name);
-
-  const handleLogin = () => {
-    setIsAuthenticated(true);
-  };
+  const [selectedTab, setSelectedTab] = React.useState<string>(TAB_CONFIG.MEALS.name);
 
   return (
     <View style={styles.container}>
-      {isAuthenticated ? (
-        <TabNavigator selectedTab={selectedTab} setSelectedTab={setSelectedTab} />
-      ) : (
-        <LoginPage onLogin={handleLogin} />
-      )}
+      <TabNavigator selectedTab={selectedTab} setSelectedTab={setSelectedTab} />
     </View>
   );
 }
@@ -173,7 +163,7 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   tabBar: {
-    backgroundColor: THEME.COLORS.BACKGROUND.LIGHT,
+    backgroundColor: THEME.COLORS.BACKGROUND.DARK,
     flex: 1,
     maxHeight: 80,
   },
