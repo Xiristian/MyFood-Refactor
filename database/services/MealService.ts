@@ -1,6 +1,8 @@
 import { Food, Meal } from '../types';
 import { MealRepository } from '../repositories/MealRepository';
 import { FoodRepository } from '../repositories/FoodRepository';
+import { readFoodsFromImage } from '@/backend/read-foods-from-image';
+import { FoodDTO } from '@/backend/get-foods';
 
 export class MealService {
   private static instance: MealService;
@@ -28,7 +30,9 @@ export class MealService {
     }
   }
 
-  public async createMeal(mealData: Omit<Meal, 'id' | 'foods'>): Promise<Meal> {
+  public async createMeal(
+    mealData: Omit<Meal, 'id' | 'foods' | 'date' | 'userId'>,
+  ): Promise<Partial<Meal>> {
     try {
       return this.mealRepository.create(mealData);
     } catch (error) {
@@ -82,7 +86,9 @@ export class MealService {
     }
   }
 
-  public async initializeDefaultMeals(defaultMeals: Array<Omit<Meal, 'id' | 'foods'>>): Promise<void> {
+  public async initializeDefaultMeals(
+    defaultMeals: Array<Omit<Meal, 'id' | 'foods' | 'date' | 'userId'>>,
+  ): Promise<void> {
     try {
       const meals = await this.mealRepository.findAll();
       if (meals.length === 0) {
@@ -95,4 +101,30 @@ export class MealService {
       throw error;
     }
   }
-} 
+
+  public async handleImageCapture(mealId: number, imageUri: string, date: Date): Promise<void> {
+    try {
+      const foods = await readFoodsFromImage(imageUri);
+      if (foods.length === 0) {
+        throw new Error('Nenhum alimento foi identificado na imagem');
+      }
+
+      await Promise.all(
+        foods.map((food: FoodDTO) =>
+          this.addFoodToMeal(mealId, {
+            name: food.food_name,
+            calories: food.calories,
+            protein: food.protein,
+            carbs: food.carbs,
+            fat: food.fat,
+            mealId: mealId,
+            date: date,
+          }),
+        ),
+      );
+    } catch (error) {
+      console.error('Erro ao processar imagem:', error);
+      throw error;
+    }
+  }
+}

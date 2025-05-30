@@ -4,12 +4,12 @@ import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
-
-import { useColorScheme } from '@/components/useColorScheme';
+import { useColorScheme, StyleSheet } from 'react-native';
 import { DatabaseConnectionProvider } from '@/database/DatabaseConnection';
 import React from 'react';
 import Logo from '@/components/Logo';
-import { AppRegistry, LogBox } from 'react-native';
+import { LogBox } from 'react-native';
+import { THEME } from '@/constants/theme';
 
 export { ErrorBoundary } from 'expo-router';
 
@@ -23,6 +23,7 @@ export default function RootLayout() {
   LogBox.ignoreAllLogs();
 
   const [loaded, error] = useFonts({
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
     ...FontAwesome.font,
   });
@@ -44,6 +45,8 @@ export default function RootLayout() {
   return <RootLayoutNav />;
 }
 
+const HeaderRightLogo = () => <Logo style={styles.logoContainer} imageStyle={styles.logoImage} />;
+
 function RootLayoutNav() {
   const colorScheme = useColorScheme();
 
@@ -52,25 +55,9 @@ function RootLayoutNav() {
       <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
         <Stack
           screenOptions={{
-            headerStyle: { backgroundColor: '#547260' },
+            headerStyle: { backgroundColor: THEME.COLORS.PRIMARY as string },
             headerTitle: '',
-            headerRight: () => (
-              <Logo
-                style={{
-                  height: '250%',
-                  width: '100%',
-                  backgroundColor: 'transparent',
-                }}
-                imageStyle={{
-                  height: '90%',
-                  width: '100%',
-                  top: 0,
-                  left: '45%',
-                  resizeMode: 'contain',
-                  paddingVertical: 10,
-                }}
-              />
-            ),
+            headerRight: HeaderRightLogo,
           }}>
           <Stack.Screen name="(tabs)" options={{}} />
           <Stack.Screen name="description-screen" options={{}} />
@@ -83,3 +70,19 @@ function RootLayoutNav() {
     </DatabaseConnectionProvider>
   );
 }
+
+const styles = StyleSheet.create({
+  logoContainer: {
+    backgroundColor: 'transparent',
+    height: '250%',
+    width: '100%',
+  },
+  logoImage: {
+    height: '90%',
+    left: '45%',
+    paddingVertical: THEME.SPACING.PADDING.VERTICAL,
+    resizeMode: 'contain',
+    top: 0,
+    width: '100%',
+  },
+});

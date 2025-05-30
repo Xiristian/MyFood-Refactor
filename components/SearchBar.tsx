@@ -1,5 +1,3 @@
-// /components/SearchBar.tsx
-
 import React, { useState } from 'react';
 import { StyleSheet, TextInput, View, TouchableOpacity } from 'react-native';
 import { Icon } from 'react-native-elements';
@@ -46,26 +44,26 @@ const SearchBar: React.FC<SearchBarProps> = ({ placeholder, onChangeText }) => {
 };
 
 const styles = StyleSheet.create({
+  clearIconContainer: {
+    marginRight: 10,
+  },
   container: {
-    flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: 50,
     backgroundColor: 'rgba(118, 166, 137, 0.1)',
-    paddingHorizontal: 15,
+    borderRadius: 50,
+    flexDirection: 'row',
     marginHorizontal: 10,
     marginTop: 10,
-  },
-  input: {
-    flex: 1,
-    paddingVertical: 10,
-    fontSize: 16,
-    color: 'grey',
+    paddingHorizontal: 15,
   },
   iconContainer: {
     marginLeft: 10,
   },
-  clearIconContainer: {
-    marginRight: 10,
+  input: {
+    color: 'grey',
+    flex: 1,
+    fontSize: 16,
+    paddingVertical: 10,
   },
 });
 

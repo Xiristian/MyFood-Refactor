@@ -38,27 +38,27 @@ export default function RenderFoodItem({ food, loadData }: RenderFoodItemProps) 
 }
 
 const styles = StyleSheet.create({
+  foodCalories: {
+    color: '#76A689',
+    fontSize: 14,
+    marginTop: 4,
+  },
   foodContainer: {
-    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 10,
-    paddingHorizontal: 15,
-    marginVertical: 5,
     backgroundColor: '#F5F5F5',
     borderRadius: 8,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginVertical: 5,
+    paddingHorizontal: 15,
+    paddingVertical: 10,
   },
   foodInfo: {
     flex: 1,
   },
   foodName: {
+    color: '#547260',
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#547260',
-  },
-  foodCalories: {
-    fontSize: 14,
-    color: '#76A689',
-    marginTop: 4,
   },
 });

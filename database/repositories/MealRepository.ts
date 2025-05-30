@@ -10,16 +10,16 @@ export class MealRepository extends BaseRepository<Meal> {
     const meals = await this.db.executeQuery<Meal>('SELECT * FROM meals ORDER BY `position`');
     const foods = await this.db.executeQuery<Food>('SELECT * FROM foods');
 
-    return meals.map(meal => ({
+    return meals.map((meal) => ({
       ...meal,
-      foods: foods.filter(food => food.mealId === meal.id)
+      foods: foods.filter((food) => food.mealId === meal.id),
     }));
   }
 
-  async create(meal: Omit<Meal, 'id' | 'foods'>): Promise<Meal> {
+  async create(meal: Omit<Meal, 'id' | 'foods' | 'date' | 'userId'>): Promise<Partial<Meal>> {
     const id = await this.db.executeInsert(
       'INSERT INTO meals (name, iconName, `position`) VALUES (?, ?, ?)',
-      [meal.name, meal.iconName, meal.position]
+      [meal.name, meal.iconName, meal.position],
     );
     return { ...meal, id, foods: [] };
   }
@@ -46,29 +46,26 @@ export class MealRepository extends BaseRepository<Meal> {
 
     if (updates.length > 0) {
       values.push(id);
-      await this.db.executeQuery(
-        `UPDATE meals SET ${updates.join(', ')} WHERE id = ?`,
-        values
-      );
+      await this.db.executeQuery(`UPDATE meals SET ${updates.join(', ')} WHERE id = ?`, values);
     }
   }
 
   async findByDateWithFoods(date: Date): Promise<Meal[]> {
     const startOfDay = new Date(date);
     startOfDay.setHours(0, 0, 0, 0);
-    
+
     const endOfDay = new Date(date);
     endOfDay.setHours(23, 59, 59, 999);
 
     const meals = await this.db.executeQuery<Meal>('SELECT * FROM meals ORDER BY `position`');
     const foods = await this.db.executeQuery<Food>(
       'SELECT * FROM foods WHERE date >= ? AND date <= ?',
-      [startOfDay.toISOString(), endOfDay.toISOString()]
+      [startOfDay.toISOString(), endOfDay.toISOString()],
     );
 
-    return meals.map(meal => ({
+    return meals.map((meal) => ({
       ...meal,
-      foods: foods.filter(food => food.mealId === meal.id)
+      foods: foods.filter((food) => food.mealId === meal.id),
     }));
   }
 }
